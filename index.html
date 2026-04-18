@@ -816,8 +816,36 @@ async function submitTicket(prefix) {
       }
     }
 
-    const item = await api('/sites/' + siteId + '/lists/IT_Requests/items', 'POST', { fields });
+    // Step 1: Create with core fields only
+    const coreFields = {
+      Title: fields.Title,
+      TicketType: fields.TicketType,
+      Priority: fields.Priority,
+      Systems: fields.Systems,
+      Status: fields.Status,
+      RequesterEmail: fields.RequesterEmail,
+      RequestDate: fields.RequestDate,
+    };
+    const item = await api('/sites/' + siteId + '/lists/IT_Requests/items', 'POST', { fields: coreFields });
     const reqId = item.id;
+
+    // Step 2: PATCH with type-specific fields (each field individually to avoid failures)
+    const extraFields = {};
+    delete fields.Title; delete fields.TicketType; delete fields.Priority;
+    delete fields.Systems; delete fields.Status; delete fields.RequesterEmail; delete fields.RequestDate;
+    Object.assign(extraFields, fields);
+    if (Object.keys(extraFields).length) {
+      try {
+        await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: extraFields });
+      } catch(patchErr) {
+        console.warn('Extra fields patch failed, trying one by one:', patchErr.message);
+        for (const [key, val] of Object.entries(extraFields)) {
+          try {
+            await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { [key]: val } });
+          } catch(e) { console.warn('Field skip:', key, e.message); }
+        }
+      }
+    }
 
     // Upload files
     const files = isInc ? incFiles : chgFiles;
