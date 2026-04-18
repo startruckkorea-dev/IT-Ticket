@@ -796,7 +796,7 @@ async function submitTicket(prefix) {
     };
 
     if (isInc) {
-      fields.OccurredAt = document.getElementById('inc-occurred-at').value || '';
+      fields.IncOccurredAt = document.getElementById('inc-occurred-at').value || '';
       fields.Symptom = detail;
       fields.Scope = document.getElementById('inc-scope').value.trim();
       fields.Workaround = document.getElementById('inc-workaround').value.trim();
@@ -1071,7 +1071,7 @@ async function showDetail(requestId) {
     const t = f.TicketType;
     if (t === 'Incident' || t === 'Problem') {
       html += sec('장애/이슈 상세') +
-        row('발생 일시', f.OccurredAt) +
+        row('발생 일시', f.IncOccurredAt) +
         row('증상 설명', f.Symptom, true) +
         row('영향 범위', f.Scope) +
         row('임시 해결책', f.Workaround);
