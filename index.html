@@ -925,6 +925,9 @@ async function loadMyList() {
 async function loadApprovalQueue() {
   if (!siteId) return;
   const tbody = document.getElementById('appr-body');
+  // Admin-only: can VIEW but not approve/reject
+  const isAdminOnly = ADMIN_EMAILS.map(e=>e.toLowerCase()).includes(user.username.toLowerCase()) &&
+    user.username.toLowerCase() !== IT_MANAGER.email.toLowerCase();
   try {
     const data = await api('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields&$top=500');
     const mine = data.value.filter(i =>
@@ -942,8 +945,11 @@ async function loadApprovalQueue() {
         '<td>' + priorityBadge(rf.Priority) + '</td>' +
         '<td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td>' +
         '<td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td>' +
-        '<td onclick="event.stopPropagation()"><button class="btn-primary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'승인\',' + f.RequestID + ',\'' + (f.ApproverRole||'') + '\')">승인</button> ' +
-        '<button class="btn-secondary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'반려\',' + f.RequestID + ',\'' + (f.ApproverRole||'') + '\')">반려</button></td></tr>';
+        '<td onclick="event.stopPropagation()">' +
+        (isAdminOnly ? '<span style="font-size:11px;color:#605e5c">조회만 가능</span>' :
+        '<button class="btn-primary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'승인\',' + f.RequestID + ',\'' + (f.ApproverRole||'') + '\')">승인</button> ' +
+        '<button class="btn-secondary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'반려\',' + f.RequestID + ',\'' + (f.ApproverRole||'') + '\')">반려</button>') +
+        '</td></tr>';
     }));
     tbody.innerHTML = rows.join('');
     const badge = document.getElementById('appr-badge');
