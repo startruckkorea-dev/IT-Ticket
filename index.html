@@ -162,7 +162,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   <div id="tab-incident" style="display:none">
     <div class="card">
       <div class="section-title red">🚨 1. 티켓 기본 정보</div>
-      <div class="form-row three">
+      <div class="form-row">
         <div class="form-group">
           <label>티켓 유형 <span class="req">*</span></label>
           <select id="inc-type">
@@ -260,7 +260,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   <div id="tab-change">
     <div class="card">
       <div class="section-title orange">🔧 1. 티켓 기본 정보</div>
-      <div class="form-row three">
+      <div class="form-row">
         <div class="form-group">
           <label>티켓 유형 <span class="req">*</span></label>
           <select id="chg-type" onchange="onChangeTypeChange()">
@@ -279,10 +279,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
             <option value="Critical">⚫ Critical</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>희망 처리 일자</label>
-          <input type="date" id="chg-due-date">
-        </div>
+
       </div>
       <div class="form-row full">
         <div class="form-group">
@@ -964,9 +961,9 @@ async function loadApprovalQueue() {
   const tbody = document.getElementById('appr-body');
   try {
     const data = await api('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields&$top=500');
-    const mine = data.value.filter(i =>
-      (i.fields.ApproverEmail||'').toLowerCase() === user.username.toLowerCase() && i.fields.Status === '대기'
-    );
+    const mine = data.value
+      .filter(i => (i.fields.ApproverEmail||'').toLowerCase() === user.username.toLowerCase() && i.fields.Status === '대기')
+      .sort((a, b) => b.fields.RequestID - a.fields.RequestID);
     if (!mine.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:#605e5c">결재 대기 항목이 없습니다.</td></tr>'; return; }
     const rows = await Promise.all(mine.map(async item => {
       const f = item.fields;
