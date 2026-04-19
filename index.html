@@ -920,7 +920,8 @@ function switchTab(name) {
 // ── Helpers ──
 function fmtDate(iso) {
   const d = new Date(iso);
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') +
+    ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
 function priorityBadge(p) {
   const bg = PRIORITY_BG[p] || '#f3f2f1';
