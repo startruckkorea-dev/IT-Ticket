@@ -221,7 +221,19 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title red">👥 4. 담당자</div>
+      <div class="section-title red">👥 4. 결재자 지정</div>
+      <div class="appr-block">
+        <div class="appr-title">1차 결재자 <span style="color:#a4262c;font-size:11px">*</span> <span style="font-size:11px;color:#605e5c;font-weight:400">— Line Manager (팀장)</span></div>
+        <div class="appr-grid">
+          <select id="inc-a1-dept" onchange="onDeptChange(1,'inc')"><option value="">부서</option></select>
+          <select id="inc-a1-team" onchange="onTeamChange(1,'inc')" disabled><option value="">팀</option></select>
+          <select id="inc-a1-person" onchange="onPersonChange(1,'inc')" disabled><option value="">직원 선택</option></select>
+        </div>
+        <div class="form-row" style="margin-top:8px">
+          <input type="text" id="inc-a1-name" readonly placeholder="이름" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
+          <input type="email" id="inc-a1-email" readonly placeholder="이메일" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
+        </div>
+      </div>
       <div class="appr-block">
         <div class="appr-title">IT 담당자 <span style="font-size:11px;color:#605e5c;font-weight:400">(자동 지정)</span></div>
         <div class="form-row">
@@ -396,7 +408,19 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title orange">👥 4. 담당자</div>
+      <div class="section-title orange">👥 4. 결재자 지정</div>
+      <div class="appr-block">
+        <div class="appr-title">1차 결재자 <span style="color:#a4262c;font-size:11px">*</span> <span style="font-size:11px;color:#605e5c;font-weight:400">— Line Manager (팀장)</span></div>
+        <div class="appr-grid">
+          <select id="chg-a1-dept" onchange="onDeptChange(1,'chg')"><option value="">부서</option></select>
+          <select id="chg-a1-team" onchange="onTeamChange(1,'chg')" disabled><option value="">팀</option></select>
+          <select id="chg-a1-person" onchange="onPersonChange(1,'chg')" disabled><option value="">직원 선택</option></select>
+        </div>
+        <div class="form-row" style="margin-top:8px">
+          <input type="text" id="chg-a1-name" readonly placeholder="이름" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
+          <input type="email" id="chg-a1-email" readonly placeholder="이메일" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
+        </div>
+      </div>
       <div class="appr-block">
         <div class="appr-title">IT 담당자 <span style="font-size:11px;color:#605e5c;font-weight:400">(자동 지정)</span></div>
         <div class="form-row">
@@ -618,7 +642,41 @@ async function loadEmployees() {
       name: r['EngName'] || '',
       email: r['EMail'] || r['email'] || ''
     })).filter(r => r.email && r.name);
+    ['inc','chg'].forEach(prefix => {
+      const depts = [...new Set(employeeData.map(e => e.dept))].sort();
+      const opts = '<option value="">부서</option>' + depts.map(d => '<option value="' + d + '">' + d + '</option>').join('');
+      const el = document.getElementById(prefix + '-a1-dept');
+      if (el) el.innerHTML = opts;
+    });
   } catch(e) { console.warn('직원 데이터 로드 실패:', e); }
+}
+
+function onDeptChange(idx, prefix) {
+  const dept = document.getElementById(prefix + '-a' + idx + '-dept').value;
+  const teamSel = document.getElementById(prefix + '-a' + idx + '-team');
+  const personSel = document.getElementById(prefix + '-a' + idx + '-person');
+  document.getElementById(prefix + '-a' + idx + '-name').value = '';
+  document.getElementById(prefix + '-a' + idx + '-email').value = '';
+  const teams = [...new Set(employeeData.filter(e => e.dept === dept).map(e => e.team))].sort();
+  teamSel.innerHTML = '<option value="">팀</option>' + teams.map(t => '<option value="' + t + '">' + t + '</option>').join('');
+  teamSel.disabled = !dept;
+  personSel.innerHTML = '<option value="">직원 선택</option>'; personSel.disabled = true;
+}
+function onTeamChange(idx, prefix) {
+  const dept = document.getElementById(prefix + '-a' + idx + '-dept').value;
+  const team = document.getElementById(prefix + '-a' + idx + '-team').value;
+  const personSel = document.getElementById(prefix + '-a' + idx + '-person');
+  document.getElementById(prefix + '-a' + idx + '-name').value = '';
+  document.getElementById(prefix + '-a' + idx + '-email').value = '';
+  const persons = employeeData.filter(e => e.dept === dept && e.team === team);
+  personSel.innerHTML = '<option value="">직원 선택</option>' + persons.map(p => '<option value="' + p.email + '">' + p.name + '</option>').join('');
+  personSel.disabled = !team;
+}
+function onPersonChange(idx, prefix) {
+  const email = document.getElementById(prefix + '-a' + idx + '-person').value;
+  const person = employeeData.find(e => e.email === email);
+  document.getElementById(prefix + '-a' + idx + '-name').value = person ? person.name : '';
+  document.getElementById(prefix + '-a' + idx + '-email').value = person ? person.email : '';
 }
 
 // ── Check approver & admin tab ──
@@ -676,6 +734,8 @@ function resetForm(prefix) {
     document.getElementById('inc-priority').style.background = '';
     document.querySelectorAll('#inc-sys-grid input').forEach(cb => { cb.checked = false; cb.parentElement.classList.remove('checked'); });
     incFiles = []; renderFiles('inc');
+    ['inc-a1-name','inc-a1-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    ['inc-a1-dept','inc-a1-team','inc-a1-person'].forEach(id => { const el = document.getElementById(id); if(el) { el.selectedIndex = 0; el.disabled = id !== 'inc-a1-dept'; } });
   } else {
     ['chg-type','chg-priority','chg-title','chg-due-date','chg-sys-other','chg-change-type','chg-impact','chg-change-detail','chg-change-reason','chg-req-type','chg-acct-purpose','chg-req-env','chg-req-detail'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     document.getElementById('chg-priority').style.background = '';
@@ -683,6 +743,8 @@ function resetForm(prefix) {
     document.getElementById('chg-req-to').value = '';
     document.querySelectorAll('#chg-sys-grid input').forEach(cb => { cb.checked = false; cb.parentElement.classList.remove('checked'); });
     chgFiles = []; renderFiles('chg');
+    ['chg-a1-name','chg-a1-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    ['chg-a1-dept','chg-a1-team','chg-a1-person'].forEach(id => { const el = document.getElementById(id); if(el) { el.selectedIndex = 0; el.disabled = id !== 'chg-a1-dept'; } });
     onChangeTypeChange();
   }
 }
@@ -694,10 +756,12 @@ async function submitTicket(prefix) {
   const priority = document.getElementById(prefix + '-priority').value;
   const title = document.getElementById(prefix + '-title').value.trim();
   const systems = getSelectedSystems(prefix + '-sys-grid', prefix + '-sys-other');
+  const a1email = document.getElementById(prefix + '-a1-email').value;
 
   if (!type) return alert('티켓 유형을 선택해주세요.');
   if (!priority) return alert('우선순위를 선택해주세요.');
   if (!title) return alert('제목을 입력해주세요.');
+  if (!a1email) return alert('1차 결재자(Line Manager)를 지정해주세요.');
 
   let detail = '';
   if (isInc) {
@@ -806,9 +870,10 @@ async function submitTicket(prefix) {
       } catch(e) { console.error('Drive error:', e); }
     }
 
-    // IT담당자만 결재자로 등록
+    // 결재자 등록: 1차 결재자(Line Manager) → IT담당자 순
     const approvers = [
-      { name: IT_MANAGER.name, email: IT_MANAGER.email, role: 'IT담당자', order: 1 },
+      { name: document.getElementById(prefix + '-a1-name').value, email: a1email, role: '1차결재자', order: 1 },
+      { name: IT_MANAGER.name, email: IT_MANAGER.email, role: 'IT담당자', order: 2 },
     ];
 
     for (const a of approvers) {
@@ -819,7 +884,7 @@ async function submitTicket(prefix) {
         ApproverName: a.name,
         ApproverRole: a.role,
         ApprovalOrder: a.order,
-        Status: '대기'
+        Status: a.order === 1 ? '대기' : '대기(잠김)'
       }});
     }
 
@@ -921,9 +986,20 @@ async function processApproval(apprId, action, reqId) {
     await api('/sites/' + siteId + '/lists/IT_Approvals/items/' + apprId, 'PATCH', {
       fields: { Status: action, ApprovalDate: new Date().toISOString(), Comment: comment || '' }
     });
-    // 승인 → 승인완료, 반려 → 반려 (IT담당자가 유일한 결재자)
-    const newStatus = action === '승인' ? '승인완료' : '반려';
-    await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: newStatus } });
+    if (action === '반려') {
+      await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: '반려' } });
+    } else if (action === '승인') {
+      // 다음 대기(잠김) 결재자 있으면 활성화, 없으면 최종 승인완료
+      const all = await api('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields&$top=500');
+      const next = all.value
+        .filter(i => i.fields.RequestID == reqId && i.fields.Status === '대기(잠김)')
+        .sort((a, b) => a.fields.ApprovalOrder - b.fields.ApprovalOrder);
+      if (next.length) {
+        await api('/sites/' + siteId + '/lists/IT_Approvals/items/' + next[0].id, 'PATCH', { fields: { Status: '대기' } });
+      } else {
+        await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: '승인완료' } });
+      }
+    }
     alert(action + ' 처리되었습니다.');
     await loadApprovalQueue();
     await checkApprover();
