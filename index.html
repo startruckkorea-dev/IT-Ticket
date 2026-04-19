@@ -140,7 +140,10 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 
 <div id="app">
   <div class="header">
-    <div class="title">IT Ticket System</div>
+    <div>
+      <div class="title">IT Ticket System</div>
+      <div style="font-size:11px;color:#605e5c;margin-top:3px">문의 Email: stk_it@hyosung.com</div>
+    </div>
     <div class="user-info">
       <span id="user-name"></span>
       <button id="btn-logout" onclick="signOut()">로그아웃</button>
@@ -148,15 +151,15 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   </div>
 
   <div class="tabs">
-    <button class="tab active" id="tab-incident-btn" onclick="switchTab('incident')">🚨 Incident / Problem</button>
-    <button class="tab" id="tab-change-btn" onclick="switchTab('change')">🔧 Change / Request</button>
+    <button class="tab active" id="tab-change-btn" onclick="switchTab('change')">🔧 Change / Request</button>
+    <button class="tab" id="tab-incident-btn" onclick="switchTab('incident')">🚨 Incident / Problem</button>
     <button class="tab" id="tab-list-btn" onclick="switchTab('list')">내 티켓 목록</button>
     <button class="tab" id="tab-approval-btn" onclick="switchTab('approval')">결재 대기 <span id="appr-badge" style="display:none;background:#a4262c;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px"></span></button>
     <button class="tab" id="tab-admin-btn" onclick="switchTab('admin')" style="display:none">관리자</button>
   </div>
 
   <!-- ── Incident / Problem ── -->
-  <div id="tab-incident">
+  <div id="tab-incident" style="display:none">
     <div class="card">
       <div class="section-title red">🚨 1. 티켓 기본 정보</div>
       <div class="form-row three">
@@ -218,31 +221,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title red">👥 4. 결재자 지정</div>
-      <div class="appr-block">
-        <div class="appr-title">1차 결재자 <span style="color:#a4262c;font-size:11px">*</span></div>
-        <div class="appr-grid">
-          <select id="inc-a1-dept" onchange="onDeptChange(1,'inc')"><option value="">부서</option></select>
-          <select id="inc-a1-team" onchange="onTeamChange(1,'inc')" disabled><option value="">팀</option></select>
-          <select id="inc-a1-person" onchange="onPersonChange(1,'inc')" disabled><option value="">직원 선택</option></select>
-        </div>
-        <div class="form-row" style="margin-top:8px">
-          <input type="text" id="inc-a1-name" readonly placeholder="이름" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
-          <input type="email" id="inc-a1-email" readonly placeholder="이메일" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
-        </div>
-      </div>
-      <div class="appr-block">
-        <div class="appr-title">2차 결재자</div>
-        <div class="appr-grid">
-          <select id="inc-a2-dept" onchange="onDeptChange(2,'inc')"><option value="">부서</option></select>
-          <select id="inc-a2-team" onchange="onTeamChange(2,'inc')" disabled><option value="">팀</option></select>
-          <select id="inc-a2-person" onchange="onPersonChange(2,'inc')" disabled><option value="">직원 선택</option></select>
-        </div>
-        <div class="form-row" style="margin-top:8px">
-          <input type="text" id="inc-a2-name" readonly placeholder="이름" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
-          <input type="email" id="inc-a2-email" readonly placeholder="이메일" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
-        </div>
-      </div>
+      <div class="section-title red">👥 4. 담당자</div>
       <div class="appr-block">
         <div class="appr-title">IT 담당자 <span style="font-size:11px;color:#605e5c;font-weight:400">(자동 지정)</span></div>
         <div class="form-row">
@@ -266,7 +245,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   </div>
 
   <!-- ── Change / Request ── -->
-  <div id="tab-change" style="display:none">
+  <div id="tab-change">
     <div class="card">
       <div class="section-title orange">🔧 1. 티켓 기본 정보</div>
       <div class="form-row three">
@@ -417,31 +396,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title orange">👥 4. 결재자 지정</div>
-      <div class="appr-block">
-        <div class="appr-title">1차 결재자 <span style="color:#a4262c;font-size:11px">*</span></div>
-        <div class="appr-grid">
-          <select id="chg-a1-dept" onchange="onDeptChange(1,'chg')"><option value="">부서</option></select>
-          <select id="chg-a1-team" onchange="onTeamChange(1,'chg')" disabled><option value="">팀</option></select>
-          <select id="chg-a1-person" onchange="onPersonChange(1,'chg')" disabled><option value="">직원 선택</option></select>
-        </div>
-        <div class="form-row" style="margin-top:8px">
-          <input type="text" id="chg-a1-name" readonly placeholder="이름" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
-          <input type="email" id="chg-a1-email" readonly placeholder="이메일" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
-        </div>
-      </div>
-      <div class="appr-block">
-        <div class="appr-title">2차 결재자</div>
-        <div class="appr-grid">
-          <select id="chg-a2-dept" onchange="onDeptChange(2,'chg')"><option value="">부서</option></select>
-          <select id="chg-a2-team" onchange="onTeamChange(2,'chg')" disabled><option value="">팀</option></select>
-          <select id="chg-a2-person" onchange="onPersonChange(2,'chg')" disabled><option value="">직원 선택</option></select>
-        </div>
-        <div class="form-row" style="margin-top:8px">
-          <input type="text" id="chg-a2-name" readonly placeholder="이름" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
-          <input type="email" id="chg-a2-email" readonly placeholder="이메일" style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1">
-        </div>
-      </div>
+      <div class="section-title orange">👥 4. 담당자</div>
       <div class="appr-block">
         <div class="appr-title">IT 담당자 <span style="font-size:11px;color:#605e5c;font-weight:400">(자동 지정)</span></div>
         <div class="form-row">
@@ -663,43 +618,7 @@ async function loadEmployees() {
       name: r['EngName'] || '',
       email: r['EMail'] || r['email'] || ''
     })).filter(r => r.email && r.name);
-    ['inc','chg'].forEach(prefix => {
-      const depts = [...new Set(employeeData.map(e => e.dept))].sort();
-      const opts = '<option value="">부서</option>' + depts.map(d => '<option value="' + d + '">' + d + '</option>').join('');
-      [1,2].forEach(i => {
-        const el = document.getElementById(prefix + '-a' + i + '-dept');
-        if (el) el.innerHTML = opts;
-      });
-    });
   } catch(e) { console.warn('직원 데이터 로드 실패:', e); }
-}
-
-function onDeptChange(idx, prefix) {
-  const dept = document.getElementById(prefix + '-a' + idx + '-dept').value;
-  const teamSel = document.getElementById(prefix + '-a' + idx + '-team');
-  const personSel = document.getElementById(prefix + '-a' + idx + '-person');
-  document.getElementById(prefix + '-a' + idx + '-name').value = '';
-  document.getElementById(prefix + '-a' + idx + '-email').value = '';
-  const teams = [...new Set(employeeData.filter(e => e.dept === dept).map(e => e.team))].sort();
-  teamSel.innerHTML = '<option value="">팀</option>' + teams.map(t => '<option value="' + t + '">' + t + '</option>').join('');
-  teamSel.disabled = !dept;
-  personSel.innerHTML = '<option value="">직원 선택</option>'; personSel.disabled = true;
-}
-function onTeamChange(idx, prefix) {
-  const dept = document.getElementById(prefix + '-a' + idx + '-dept').value;
-  const team = document.getElementById(prefix + '-a' + idx + '-team').value;
-  const personSel = document.getElementById(prefix + '-a' + idx + '-person');
-  document.getElementById(prefix + '-a' + idx + '-name').value = '';
-  document.getElementById(prefix + '-a' + idx + '-email').value = '';
-  const persons = employeeData.filter(e => e.dept === dept && e.team === team);
-  personSel.innerHTML = '<option value="">직원 선택</option>' + persons.map(p => '<option value="' + p.email + '">' + p.name + '</option>').join('');
-  personSel.disabled = !team;
-}
-function onPersonChange(idx, prefix) {
-  const email = document.getElementById(prefix + '-a' + idx + '-person').value;
-  const person = employeeData.find(e => e.email === email);
-  document.getElementById(prefix + '-a' + idx + '-name').value = person ? person.name : '';
-  document.getElementById(prefix + '-a' + idx + '-email').value = person ? person.email : '';
 }
 
 // ── Check approver & admin tab ──
@@ -757,7 +676,6 @@ function resetForm(prefix) {
     document.getElementById('inc-priority').style.background = '';
     document.querySelectorAll('#inc-sys-grid input').forEach(cb => { cb.checked = false; cb.parentElement.classList.remove('checked'); });
     incFiles = []; renderFiles('inc');
-    [1,2].forEach(i => { document.getElementById('inc-a' + i + '-name').value = ''; document.getElementById('inc-a' + i + '-email').value = ''; });
   } else {
     ['chg-type','chg-priority','chg-title','chg-due-date','chg-sys-other','chg-change-type','chg-impact','chg-change-detail','chg-change-reason','chg-req-type','chg-acct-purpose','chg-req-env','chg-req-detail'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     document.getElementById('chg-priority').style.background = '';
@@ -765,7 +683,6 @@ function resetForm(prefix) {
     document.getElementById('chg-req-to').value = '';
     document.querySelectorAll('#chg-sys-grid input').forEach(cb => { cb.checked = false; cb.parentElement.classList.remove('checked'); });
     chgFiles = []; renderFiles('chg');
-    [1,2].forEach(i => { document.getElementById('chg-a' + i + '-name').value = ''; document.getElementById('chg-a' + i + '-email').value = ''; });
     onChangeTypeChange();
   }
 }
@@ -777,12 +694,10 @@ async function submitTicket(prefix) {
   const priority = document.getElementById(prefix + '-priority').value;
   const title = document.getElementById(prefix + '-title').value.trim();
   const systems = getSelectedSystems(prefix + '-sys-grid', prefix + '-sys-other');
-  const a1email = document.getElementById(prefix + '-a1-email').value;
 
   if (!type) return alert('티켓 유형을 선택해주세요.');
   if (!priority) return alert('우선순위를 선택해주세요.');
   if (!title) return alert('제목을 입력해주세요.');
-  if (!a1email) return alert('1차 결재자를 지정해주세요.');
 
   let detail = '';
   if (isInc) {
@@ -891,12 +806,10 @@ async function submitTicket(prefix) {
       } catch(e) { console.error('Drive error:', e); }
     }
 
-    // 결재자 생성
+    // IT담당자만 결재자로 등록
     const approvers = [
-      { name: document.getElementById(prefix + '-a1-name').value, email: a1email, role: '1차결재자', order: 1 },
-      { name: document.getElementById(prefix + '-a2-name').value, email: document.getElementById(prefix + '-a2-email').value, role: '2차결재자', order: 2 },
-      { name: IT_MANAGER.name, email: IT_MANAGER.email, role: 'IT담당자', order: 3 },
-    ].filter(a => a.email);
+      { name: IT_MANAGER.name, email: IT_MANAGER.email, role: 'IT담당자', order: 1 },
+    ];
 
     for (const a of approvers) {
       await api('/sites/' + siteId + '/lists/IT_Approvals/items', 'POST', { fields: {
@@ -906,7 +819,7 @@ async function submitTicket(prefix) {
         ApproverName: a.name,
         ApproverRole: a.role,
         ApprovalOrder: a.order,
-        Status: a.order === 1 ? '대기' : '대기(잠김)'
+        Status: '대기'
       }});
     }
 
@@ -972,8 +885,6 @@ async function loadMyList() {
 async function loadApprovalQueue() {
   if (!siteId) return;
   const tbody = document.getElementById('appr-body');
-  // IT담당자만 결재 처리 가능, 나머지 관리자는 조회만
-  const canApprove = (user.username || '').toLowerCase() === IT_MANAGER.email.toLowerCase();
   try {
     const data = await api('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields&$top=500');
     const mine = data.value.filter(i =>
@@ -992,12 +903,8 @@ async function loadApprovalQueue() {
         '<td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td>' +
         '<td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td>' +
         '<td onclick="event.stopPropagation()">' +
-        (canApprove
-          ? '<button class="btn-primary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'승인\',' + f.RequestID + ',\'' + (f.ApproverRole||'') + '\')">승인</button> ' +
-            '<button class="btn-secondary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'반려\',' + f.RequestID + ',\'' + (f.ApproverRole||'') + '\')">반려</button>'
-          : '<button class="btn-primary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'승인\',' + f.RequestID + ',\'' + (f.ApproverRole||'') + '\')">승인</button> ' +
-            '<button class="btn-secondary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'반려\',' + f.RequestID + ',\'' + (f.ApproverRole||'') + '\')">반려</button>'
-        ) +
+        '<button class="btn-primary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> ' +
+        '<button class="btn-secondary" style="padding:3px 10px;font-size:12px" onclick="processApproval(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button>' +
         '</td></tr>';
     }));
     tbody.innerHTML = rows.join('');
@@ -1006,7 +913,7 @@ async function loadApprovalQueue() {
   } catch(e) { console.error(e); }
 }
 
-async function processApproval(apprId, action, reqId, role) {
+async function processApproval(apprId, action, reqId) {
   const comment = prompt(action + ' 의견 (선택사항):');
   if (comment === null) return;
   loading(true);
@@ -1014,16 +921,9 @@ async function processApproval(apprId, action, reqId, role) {
     await api('/sites/' + siteId + '/lists/IT_Approvals/items/' + apprId, 'PATCH', {
       fields: { Status: action, ApprovalDate: new Date().toISOString(), Comment: comment || '' }
     });
-    if (action === '반려') {
-      await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: '반려' } });
-    } else if (action === '승인' && role === 'IT담당자') {
-      await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: '승인완료' } });
-    } else if (action === '승인') {
-      const all = await api('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields&$top=500');
-      const next = all.value.filter(i => i.fields.RequestID == reqId && i.fields.Status === '대기(잠김)').sort((a,b) => a.fields.ApprovalOrder - b.fields.ApprovalOrder);
-      if (next.length) await api('/sites/' + siteId + '/lists/IT_Approvals/items/' + next[0].id, 'PATCH', { fields: { Status: '대기' } });
-      else await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: '처리중' } });
-    }
+    // 승인 → 승인완료, 반려 → 반려 (IT담당자가 유일한 결재자)
+    const newStatus = action === '승인' ? '승인완료' : '반려';
+    await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: newStatus } });
     alert(action + ' 처리되었습니다.');
     await loadApprovalQueue();
     await checkApprover();
