@@ -807,7 +807,7 @@ async function submitTicket(prefix) {
       fields.Scope = document.getElementById('inc-scope').value.trim();
       fields.Workaround = document.getElementById('inc-workaround').value.trim();
     } else {
-      fields.DueDate = document.getElementById('chg-due-date').value || '';
+      // DueDate 항목 제거됨
       fields.Detail = detail;
       if (type === 'Change') {
         fields.ChangeType = document.getElementById('chg-change-type').value;
@@ -1120,7 +1120,6 @@ async function showDetail(requestId) {
       html += sec('변경 요청 상세') +
         row('변경 유형', f.ChangeType) +
         row('예상 영향도', f.Impact) +
-        row('희망 처리일', f.DueDate) +
         row('변경 내용', f.Detail, true) +
         row('변경 이유', f.ChangeReason, true);
     } else if (t === 'Request') {
