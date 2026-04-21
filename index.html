@@ -581,6 +581,13 @@ async function boot(account) {
   initSysGrid('inc-sys-grid');
   initSysGrid('chg-sys-grid');
   try {
+    // Graph API /me로 실제 mail 주소 확보 (ext/guest 계정은 UPN과 mail이 다를 수 있음)
+    try {
+      const me = await api('/me?$select=mail,userPrincipalName');
+      user.email = (me.mail || me.userPrincipalName || account.username).toLowerCase();
+    } catch(e) {
+      user.email = (account.username || '').toLowerCase();
+    }
     const site = await api('/sites/' + SITE_PATH);
     siteId = site.id;
     await loadEmployees();
@@ -591,7 +598,7 @@ async function boot(account) {
 // ── 관리자 여부 체크 (대소문자 무시) ──
 function isAdmin() {
   if (!user) return false;
-  const email = (user.username || '').toLowerCase();
+  const email = (user.email || user.username || '').toLowerCase();
   return ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
 }
 
@@ -702,7 +709,7 @@ async function checkApprover() {
   try {
     const data = await api('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields&$top=500');
     const mine = data.value.filter(i =>
-      (i.fields.ApproverEmail||'').toLowerCase() === user.username.toLowerCase() && i.fields.Status === '대기'
+      (i.fields.ApproverEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase() && i.fields.Status === '대기'
     );
     const badge = document.getElementById('appr-badge');
     if (mine.length) { badge.textContent = mine.length; badge.style.display = 'inline'; }
@@ -797,7 +804,7 @@ async function submitTicket(prefix) {
       Priority: priority,
       Systems: systems,
       Status: '대기',
-      RequesterEmail: user.username,
+      RequesterEmail: user.email || user.username,
       RequestDate: now,
     };
 
@@ -937,7 +944,7 @@ async function loadMyList() {
   try {
     const data = await api('/sites/' + siteId + '/lists/IT_Requests/items?$expand=fields&$top=500');
     const mine = data.value
-      .filter(i => (i.fields.RequesterEmail||'').toLowerCase() === user.username.toLowerCase())
+      .filter(i => (i.fields.RequesterEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase())
       .sort((a,b) => new Date(b.fields.RequestDate) - new Date(a.fields.RequestDate));
     if (!mine.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#605e5c">등록된 티켓이 없습니다.</td></tr>'; return; }
     tbody.innerHTML = mine.map(item => {
@@ -962,7 +969,7 @@ async function loadApprovalQueue() {
   try {
     const data = await api('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields&$top=500');
     const mine = data.value
-      .filter(i => (i.fields.ApproverEmail||'').toLowerCase() === user.username.toLowerCase() && i.fields.Status === '대기')
+      .filter(i => (i.fields.ApproverEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase() && i.fields.Status === '대기')
       .sort((a, b) => b.fields.RequestID - a.fields.RequestID);
     if (!mine.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:#605e5c">결재 대기 항목이 없습니다.</td></tr>'; return; }
     const rows = await Promise.all(mine.map(async item => {
