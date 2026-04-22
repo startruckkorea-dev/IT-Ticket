@@ -151,8 +151,8 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   </div>
 
   <div class="tabs">
-    <button class="tab active" id="tab-change-btn" onclick="switchTab('change')">🔧 Change / Request</button>
-    <button class="tab" id="tab-incident-btn" onclick="switchTab('incident')">🚨 Incident / Problem</button>
+    <button class="tab active" id="tab-change-btn" onclick="switchTab('change')">Change / Request</button>
+    <button class="tab" id="tab-incident-btn" onclick="switchTab('incident')">Incident / Problem</button>
     <button class="tab" id="tab-list-btn" onclick="switchTab('list')">내 티켓 목록</button>
     <button class="tab" id="tab-approval-btn" onclick="switchTab('approval')">결재 대기 <span id="appr-badge" style="display:none;background:#a4262c;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px"></span></button>
     <button class="tab" id="tab-admin-btn" onclick="switchTab('admin')" style="display:none">관리자</button>
@@ -161,7 +161,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   <!-- ── Incident / Problem ── -->
   <div id="tab-incident" style="display:none">
     <div class="card">
-      <div class="section-title red">🚨 1. 티켓 기본 정보</div>
+      <div class="section-title red">1. 티켓 기본 정보</div>
       <div class="form-row">
         <div class="form-group">
           <label>티켓 유형 <span class="req">*</span></label>
@@ -175,9 +175,9 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
           <label>우선순위 <span class="req">*</span></label>
           <select id="inc-priority" class="priority-select" onchange="onPriorityChange('inc-priority')">
             <option value="">-- 선택 --</option>
-            <option value="Low">🟢 Low</option>
-            <option value="Medium">🟡 Medium</option>
-            <option value="High">🔴 High</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
             <option value="Critical">⚫ Critical</option>
           </select>
         </div>
@@ -193,7 +193,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title red">🖥️ 2. 영향 받는 시스템</div>
+      <div class="section-title red">2. 영향 받는 시스템</div>
       <div style="font-size:12px;color:#605e5c;margin-bottom:6px">해당하는 시스템을 모두 선택해주세요.</div>
       <div class="sys-grid" id="inc-sys-grid"></div>
       <div class="form-row full" style="margin-top:12px">
@@ -203,7 +203,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title red">📋 3. 상세 내용</div>
+      <div class="section-title red">3. 상세 내용</div>
       <div class="form-row full">
         <div class="form-group">
           <label>증상 설명 <span class="req">*</span></label>
@@ -242,10 +242,10 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title red">📎 5. 첨부파일</div>
+      <div class="section-title red">5. 첨부파일</div>
       <div class="file-area" onclick="document.getElementById('inc-file-input').click()">
         <input type="file" id="inc-file-input" multiple onchange="onFileSelect(event,'inc')">
-        <div class="hint">📎 클릭하여 파일 첨부 (스크린샷, 로그 등 / 최대 10MB)</div>
+        <div class="hint">클릭하여 파일 첨부 (스크린샷, 로그 등 / 최대 10MB)</div>
       </div>
       <div class="file-list" id="inc-file-list"></div>
 
@@ -259,7 +259,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   <!-- ── Change / Request ── -->
   <div id="tab-change">
     <div class="card">
-      <div class="section-title orange">🔧 1. 티켓 기본 정보</div>
+      <div class="section-title orange">1. 티켓 기본 정보</div>
       <div class="form-row">
         <div class="form-group">
           <label>티켓 유형 <span class="req">*</span></label>
@@ -273,9 +273,9 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
           <label>우선순위 <span class="req">*</span></label>
           <select id="chg-priority" class="priority-select" onchange="onPriorityChange('chg-priority')">
             <option value="">-- 선택 --</option>
-            <option value="Low">🟢 Low</option>
-            <option value="Medium">🟡 Medium</option>
-            <option value="High">🔴 High</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
             <option value="Critical">⚫ Critical</option>
           </select>
         </div>
@@ -288,7 +288,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title orange">🖥️ 2. 대상 시스템</div>
+      <div class="section-title orange">2. 대상 시스템</div>
       <div style="font-size:12px;color:#605e5c;margin-bottom:6px">요청/변경 대상 시스템을 모두 선택해주세요.</div>
       <div class="sys-grid" id="chg-sys-grid"></div>
       <div class="form-row full" style="margin-top:12px">
@@ -341,7 +341,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 
       <!-- Service Request 전용 -->
       <div id="chg-request-section" style="display:none">
-        <div class="section-title orange">📋 3. 서비스 요청 상세</div>
+        <div class="section-title orange">3. 서비스 요청 상세</div>
         <div class="form-row">
           <div class="form-group">
             <label>요청 유형 <span class="req">*</span></label>
@@ -396,7 +396,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 
       <!-- 공통 상세 (유형 미선택 시) -->
       <div id="chg-default-section">
-        <div class="section-title orange">📋 3. 요청 상세 내용</div>
+        <div class="section-title orange">3. 요청 상세 내용</div>
         <div class="form-row full">
           <div class="form-group">
             <label>상세 내용 <span class="req">*</span></label>
@@ -426,10 +426,10 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         </div>
       </div>
 
-      <div class="section-title orange">📎 5. 첨부파일</div>
+      <div class="section-title orange">5. 첨부파일</div>
       <div class="file-area" onclick="document.getElementById('chg-file-input').click()">
         <input type="file" id="chg-file-input" multiple onchange="onFileSelect(event,'chg')">
-        <div class="hint">📎 클릭하여 파일 첨부 (최대 10MB)</div>
+        <div class="hint">클릭하여 파일 첨부 (최대 10MB)</div>
       </div>
       <div class="file-list" id="chg-file-list"></div>
 
@@ -1056,12 +1056,12 @@ async function showDetail(requestId) {
         if (newFmt.length === 3) {
           const driveId = newFmt[1].trim();
           const itemId  = newFmt[2].trim();
-          return '<div style="padding:4px 0;font-size:13px">📎 <a href="#" class="file-dl-link" data-drive="' + encodeURIComponent(driveId) + '" data-id="' + encodeURIComponent(itemId) + '" data-name="' + encodeURIComponent(name) + '" style="color:#0078d4;cursor:pointer">' + name + '</a></div>';
+          return '<div style="padding:4px 0;font-size:13px"><a href="#" class="file-dl-link" data-drive="' + encodeURIComponent(driveId) + '" data-id="' + encodeURIComponent(itemId) + '" data-name="' + encodeURIComponent(name) + '" style="color:#0078d4;cursor:pointer">' + name + '</a></div>';
         }
         const parts = entry.split('|');
         const url = parts[1] ? parts[1].trim() : '';
-        if (!url) return '<div style="padding:4px 0;font-size:13px;color:#605e5c">📎 ' + name + '</div>';
-        return '<div style="padding:4px 0;font-size:13px">📎 <a href="' + url + '" target="_blank" style="color:#0078d4">' + name + '</a></div>';
+        if (!url) return '<div style="padding:4px 0;font-size:13px;color:#605e5c">' + name + '</div>';
+        return '<div style="padding:4px 0;font-size:13px"><a href="' + url + '" target="_blank" style="color:#0078d4">' + name + '</a></div>';
       }).filter(Boolean).join('');
     }
 
@@ -1073,7 +1073,7 @@ async function showDetail(requestId) {
         const sc = { '대기':'#7d5700','승인':'#107c10','반려':'#a4262c','대기(잠김)':'#605e5c' };
         apprHtml = sec('결재 이력') + apprList.map(a => {
           const af = a.fields;
-          return '<div style="padding:7px 0;border-bottom:0.5px solid #edebe9;font-size:13px"><div style="display:flex;justify-content:space-between"><span style="font-weight:500">' + (af.ApproverRole||'') + ' — ' + (af.ApproverName||af.ApproverEmail||'') + '</span><span style="color:' + (sc[af.Status]||'#323130') + ';font-weight:600">' + (af.Status||'') + '</span></div>' + (af.ApprovalDate ? '<div style="color:#605e5c;font-size:11px">' + fmtDate(af.ApprovalDate) + '</div>' : '') + (af.Comment ? '<div style="margin-top:3px;background:#f3f2f1;border-radius:3px;padding:4px 7px;font-size:12px">💬 ' + af.Comment + '</div>' : '') + '</div>';
+          return '<div style="padding:7px 0;border-bottom:0.5px solid #edebe9;font-size:13px"><div style="display:flex;justify-content:space-between"><span style="font-weight:500">' + (af.ApproverRole||'') + ' — ' + (af.ApproverName||af.ApproverEmail||'') + '</span><span style="color:' + (sc[af.Status]||'#323130') + ';font-weight:600">' + (af.Status||'') + '</span></div>' + (af.ApprovalDate ? '<div style="color:#605e5c;font-size:11px">' + fmtDate(af.ApprovalDate) + '</div>' : '') + (af.Comment ? '<div style="margin-top:3px;background:#f3f2f1;border-radius:3px;padding:4px 7px;font-size:12px">' + af.Comment + '</div>' : '') + '</div>';
         }).join('');
       }
     } catch(e) {}
