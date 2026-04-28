@@ -1153,8 +1153,9 @@ async function confirmApproval() {
   const { apprId, action, reqId } = _pendingApproval;
   const comment = document.getElementById('confirm-comment').value.trim();
   if (action === '반려' && !comment) { alert('반려 사유를 입력해주세요.'); return; }
-  closeConfirm();
   window._detailModalWasOpen = false; // 승인/반려 완료 후엔 detail-modal 닫힌 상태 유지
+  closeConfirm();
+  document.getElementById('detail-modal').style.display = 'none'; // detail-modal 명시적 닫기
   await processApproval(apprId, action, reqId, comment);
   // 통합결재함이 열려있으면 목록 새로고침
   const uniModal = document.getElementById('unified-modal');
