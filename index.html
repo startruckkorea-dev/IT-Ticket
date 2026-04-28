@@ -6,6 +6,8 @@
 <title>IT Ticket System</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.0/lib/msal-browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100vh; }
@@ -594,7 +596,12 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 <div id="detail-modal" onclick="if(event.target===this)closeModal()">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal()">×</button>
-    <div class="modal-title">티켓 상세 내용</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="modal-title" style="margin-bottom:0">티켓 상세 내용</div>
+      <button id="btn-export-pdf" onclick="exportTicketPdf()" style="background:#0078d4;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:.75rem;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;transition:all .15s" onmouseover="this.style.background='#005a9e'" onmouseout="this.style.background='#0078d4'">
+        📄 PDF 출력
+      </button>
+    </div>
     <div id="modal-content"></div>
   </div>
 </div>
@@ -1300,6 +1307,8 @@ async function showDetail(requestId) {
     html += sec('첨부파일') + filesHtml + apprHtml;
     document.getElementById('modal-content').innerHTML = html;
     document.getElementById('detail-modal').style.display = 'flex';
+    window._currentTicketId = requestId;
+    window._currentTicketFields = f;
   } catch(e) { alert('상세 조회 오류: ' + e.message); }
   finally { loading(false); }
 }
@@ -1330,6 +1339,163 @@ document.addEventListener('click', async function(e) {
 function loading(v) { document.getElementById('loading').classList.toggle('show', v); }
 function showError(msg) { const el = document.getElementById('login-error'); el.style.display = 'block'; el.textContent = '오류: ' + msg; }
 function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
+
+// ── PDF 출력 ──
+async function exportTicketPdf() {
+  const btn = document.getElementById('btn-export-pdf');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '⏳ 생성 중...';
+  btn.disabled = true;
+
+  try {
+    const { PDFDocument } = PDFLib;
+    const contentEl = document.getElementById('modal-content');
+
+    const now = new Date();
+    const _ds = '출력일시: ' + now.toLocaleDateString('ko-KR') + ' ' + now.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+
+    // 승인/반려 버튼 임시 숨김
+    const procBtns = contentEl.querySelectorAll('.btn-approve, .btn-reject');
+    procBtns.forEach(b => b.style.display = 'none');
+
+    const cvs = await html2canvas(contentEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:'#fff', scrollY:0, windowWidth:700});
+
+    procBtns.forEach(b => b.style.display = '');
+
+    const mainDoc = await PDFDocument.create();
+    const A4W = 595, A4H = 842;
+    const marginPt = 34, hdrH = 22;
+    const printW_pt = A4W - marginPt * 2;
+    const printableH_pt = A4H - marginPt * 2 - hdrH;
+
+    // 헤더 PNG 생성
+    function makeHdrPng(left, right) {
+      const hc = document.createElement('canvas');
+      hc.width = 1190; hc.height = 28;
+      const hx = hc.getContext('2d');
+      const g = hx.createLinearGradient(0, 0, hc.width, 0);
+      g.addColorStop(0, '#0f2744'); g.addColorStop(1, '#0a4a8a');
+      hx.fillStyle = g; hx.fillRect(0, 0, hc.width, hc.height);
+      hx.fillStyle = '#3b82f6'; hx.fillRect(0, hc.height - 2, hc.width, 2);
+      hx.fillStyle = '#fff';
+      hx.font = '500 13px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+      hx.textBaseline = 'middle'; hx.fillText(left, 14, 13);
+      hx.textAlign = 'right'; hx.font = '400 12px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+      hx.fillStyle = 'rgba(255,255,255,.6)'; hx.fillText(right, hc.width - 14, 13);
+      return hc.toDataURL('image/png');
+    }
+
+    async function dataUrlToUint8(dataUrl) {
+      const res = await fetch(dataUrl);
+      return new Uint8Array(await res.arrayBuffer());
+    }
+
+    const hdrDataUrl = makeHdrPng('STK IT Ticket · 티켓 상세 내역', _ds);
+    const hdrBytes = await dataUrlToUint8(hdrDataUrl);
+
+    // 결재 내용 canvas → 페이지 분할 (canvas crop 방식)
+    const pxPerPt = cvs.width / A4W;
+    const sliceH_px = Math.round(printableH_pt * pxPerPt);
+    const numPages = Math.ceil(cvs.height / sliceH_px);
+
+    for (let i = 0; i < numPages; i++) {
+      const page = mainDoc.addPage([A4W, A4H]);
+      const hdrImg = await mainDoc.embedPng(hdrBytes);
+      page.drawImage(hdrImg, {x:0, y:A4H - hdrH, width:A4W, height:hdrH});
+
+      const srcY = i * sliceH_px;
+      const sliceActual_px = Math.min(sliceH_px, cvs.height - srcY);
+      const sliceActual_pt = sliceActual_px / pxPerPt;
+
+      const sc = document.createElement('canvas');
+      sc.width = cvs.width; sc.height = sliceActual_px;
+      sc.getContext('2d').drawImage(cvs, 0, srcY, cvs.width, sliceActual_px, 0, 0, cvs.width, sliceActual_px);
+
+      const sliceBytes = await dataUrlToUint8(sc.toDataURL('image/jpeg', 0.92));
+      const sliceImg = await mainDoc.embedJpg(sliceBytes);
+      page.drawImage(sliceImg, {
+        x: marginPt,
+        y: A4H - hdrH - marginPt - sliceActual_pt,
+        width: printW_pt,
+        height: sliceActual_pt
+      });
+    }
+
+    // 첨부파일 처리
+    const fileLinks = contentEl.querySelectorAll('.file-dl-link');
+    const _t = await token();
+
+    for (const link of fileLinks) {
+      const name = decodeURIComponent(link.dataset.name || '');
+      if (!name) continue;
+      const dId = decodeURIComponent(link.dataset.drive || '');
+      const iId = decodeURIComponent(link.dataset.id || '');
+      if (!dId || !iId) continue;
+      const ext = name.split('.').pop().toLowerCase();
+      const imgExts = ['jpg','jpeg','png','gif','webp'];
+
+      btn.innerHTML = '⏳ ' + name.substring(0, 20) + '...';
+
+      try {
+        if (imgExts.includes(ext)) {
+          const res = await fetch('https://graph.microsoft.com/v1.0/drives/' + dId + '/items/' + iId + '/content', {headers:{Authorization:'Bearer ' + _t}});
+          if (!res.ok) throw new Error(res.status);
+          const imgAb = await res.arrayBuffer();
+          const attachPage = mainDoc.addPage([A4W, A4H]);
+          const aHdrBytes = await dataUrlToUint8(makeHdrPng('첨부파일: ' + name, _ds));
+          const aHdrImg = await mainDoc.embedPng(aHdrBytes);
+          attachPage.drawImage(aHdrImg, {x:0, y:A4H - hdrH, width:A4W, height:hdrH});
+          let embImg;
+          if (['jpg','jpeg'].includes(ext)) embImg = await mainDoc.embedJpg(new Uint8Array(imgAb));
+          else embImg = await mainDoc.embedPng(new Uint8Array(imgAb));
+          const {width:iW, height:iH} = embImg;
+          const ratio = Math.min(printW_pt / iW, (A4H - hdrH - marginPt * 2) / iH);
+          attachPage.drawImage(embImg, {x:marginPt, y:A4H - hdrH - marginPt - iH * ratio, width:iW * ratio, height:iH * ratio});
+
+        } else {
+          if (ext === 'pdf') continue; // PDF 첨부는 스킵
+          const res = await fetch('https://graph.microsoft.com/v1.0/drives/' + dId + '/items/' + iId + '/content?format=pdf', {headers:{Authorization:'Bearer ' + _t}});
+          if (!res.ok) throw new Error('변환실패 ' + res.status);
+          const pdfBytes = new Uint8Array(await res.arrayBuffer());
+          const srcDoc = await PDFDocument.load(pdfBytes, {ignoreEncryption:true});
+          const copiedPages = await mainDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+          const aHdrBytes2 = await dataUrlToUint8(makeHdrPng('첨부파일: ' + name, _ds));
+          for (const pg of copiedPages) {
+            mainDoc.addPage(pg);
+            const aHdrImg2 = await mainDoc.embedPng(aHdrBytes2);
+            const {width:pgW, height:pgH} = pg.getSize();
+            pg.drawImage(aHdrImg2, {x:0, y:pgH - hdrH, width:pgW, height:hdrH});
+          }
+        }
+      } catch(e) {
+        console.warn('첨부파일 처리 실패:', name, e.message);
+        const errPage = mainDoc.addPage([A4W, A4H]);
+        const errHdrBytes = await dataUrlToUint8(makeHdrPng('첨부파일: ' + name + ' (변환 실패)', _ds));
+        const errHdrImg = await mainDoc.embedPng(errHdrBytes);
+        errPage.drawImage(errHdrImg, {x:0, y:A4H - hdrH, width:A4W, height:hdrH});
+      }
+    }
+
+    // 저장
+    const finalBytes = await mainDoc.save();
+    const finalBlob = new Blob([finalBytes], {type:'application/pdf'});
+    const f = window._currentTicketFields;
+    const reqEmail = (f?.RequesterEmail || 'unknown').replace(/[^a-z0-9]/gi, '_');
+    const fileName = 'ITSM_' + (window._currentTicketId || 'ticket') + '_' + reqEmail + '_' + now.toISOString().substring(0, 10) + '.pdf';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(finalBlob);
+    a.download = fileName;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+
+  } catch(e) {
+    alert('PDF 생성 오류: ' + e.message);
+    console.error(e);
+  } finally {
+    btn.innerHTML = orig;
+    btn.disabled = false;
+  }
+}
 
 (async () => {
   const msalInstance = await msal.PublicClientApplication.createPublicClientApplication({
