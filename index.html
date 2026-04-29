@@ -1463,8 +1463,10 @@ async function exportTicketPdf() {
           attachPage.drawImage(embImg, {x:marginPt, y:A4H - hdrH - marginPt - iH * ratio, width:iW * ratio, height:iH * ratio});
 
         } else {
-          if (ext === 'pdf') continue; // PDF 첨부는 스킵
-          const res = await fetch('https://graph.microsoft.com/v1.0/drives/' + dId + '/items/' + iId + '/content?format=pdf', {headers:{Authorization:'Bearer ' + _t}});
+          const convertUrl = ext === 'pdf'
+            ? 'https://graph.microsoft.com/v1.0/drives/' + dId + '/items/' + iId + '/content'
+            : 'https://graph.microsoft.com/v1.0/drives/' + dId + '/items/' + iId + '/content?format=pdf';
+          const res = await fetch(convertUrl, {headers:{Authorization:'Bearer ' + _t}});
           if (!res.ok) throw new Error('변환실패 ' + res.status);
           const pdfBytes = new Uint8Array(await res.arrayBuffer());
           const srcDoc = await PDFDocument.load(pdfBytes, {ignoreEncryption:true});
