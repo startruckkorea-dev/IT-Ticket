@@ -237,7 +237,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   <div class="header">
     <div>
       <div class="title">IT Ticket System</div>
-      <div style="font-size:11px;color:#605e5c;margin-top:3px">문의 Email: (Excel 설정값)</div>
+      <div style="font-size:11px;color:#605e5c;margin-top:3px" id="it-contact-email">문의 Email: (로딩중...)</div>
     </div>
     <div class="user-info" style="flex-direction:column;align-items:flex-end;gap:8px">
       <div style="display:flex;align-items:center;gap:10px">
@@ -771,7 +771,7 @@ async function boot(account) {
     const _cfg = await loadSystemConfig();
     if (_cfg) {
       const _contact = cfgVal(_cfg,'IT_CONTACT',cfgVal(_cfg,'CONTACT_EMAIL',{email:''}));
-      document.querySelectorAll('.sub,.subtitle,.nav-sub').forEach(el=>{if(el.textContent.includes('@'))el.textContent='문의: '+_contact.email;});
+      const _itCEl=document.getElementById('it-contact-email');if(_itCEl)_itCEl.textContent='문의 Email: '+_contact.email;
       const _adminList = cfgEmails(_cfg,['IT_ADMIN_1','IT_ADMIN_2','ADMIN_SP']);
       if(_adminList.length) ADMIN_EMAILS.splice(0,ADMIN_EMAILS.length,..._adminList);
       Object.assign(IT_MANAGER, cfgVal(_cfg,'IT_MANAGER',IT_MANAGER));
