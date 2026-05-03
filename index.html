@@ -237,7 +237,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
   <div class="header">
     <div>
       <div class="title">IT Ticket System</div>
-      <div style="font-size:11px;color:#605e5c;margin-top:3px">문의 Email: stk_it@hyosung.com</div>
+      <div style="font-size:11px;color:#605e5c;margin-top:3px">문의 Email: (Excel 설정값)</div>
     </div>
     <div class="user-info" style="flex-direction:column;align-items:flex-end;gap:8px">
       <div style="display:flex;align-items:center;gap:10px">
@@ -335,8 +335,8 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="appr-block">
         <div class="appr-title">IT 담당자 <span style="font-size:11px;color:#605e5c;font-weight:400">(자동 지정)</span></div>
         <div class="form-row">
-          <input type="text" id="cfg-it-mgr-name2" value="IT Support" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
-          <input type="email" id="cfg-it-mgr-email2" value="stk_s_sharepoint@hyosung.com" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
+          <input type="text" id="cfg-it-mgr-name2" value="" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
+          <input type="email" id="cfg-it-mgr-email2" value="" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
         </div>
       </div>
 
@@ -519,8 +519,8 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="appr-block">
         <div class="appr-title">IT 담당자 <span style="font-size:11px;color:#605e5c;font-weight:400">(자동 지정)</span></div>
         <div class="form-row">
-          <input type="text" value="IT Support" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
-          <input type="email" value="stk_s_sharepoint@hyosung.com" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
+          <input type="text" value="" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
+          <input type="email" value="" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
         </div>
       </div>
 
@@ -654,14 +654,14 @@ const SCOPES    = ['User.Read', 'Sites.ReadWrite.All', 'Files.ReadWrite.All'];
 
 // ✅ 관리자 목록 (탭 접근 가능 - 전체 조회 가능)
 const ADMIN_EMAILS = [
-  'stk_s_sharepoint@hyosung.com',
-  'admin@startruckkorea.onmicrosoft.com',
-  'jimmy.lee@hyosung.com',
-  'suhwan.kim.ext@hyosung.com'
+  '',
+  '',
+  '',
+  ''
 ];
 
 // ✅ IT담당자 (최종 결재자 고정 - 결재 처리도 가능)
-const IT_MANAGER = { name: 'IT Support', email: 'stk_s_sharepoint@hyosung.com' };
+const IT_MANAGER = { name: 'IT Support', email: '' };
 
 const SYSTEMS = [
   'STK RAS', 'STK KR-Intranet', 'SharePoint', 'STK Intra CV',
@@ -770,7 +770,7 @@ async function boot(account) {
     siteId = site.id;
     const _cfg = await loadSystemConfig();
     if (_cfg) {
-      const _contact = cfgVal(_cfg,'IT_CONTACT',cfgVal(_cfg,'CONTACT_EMAIL',{email:'stk_it@hyosung.com'}));
+      const _contact = cfgVal(_cfg,'IT_CONTACT',cfgVal(_cfg,'CONTACT_EMAIL',{email:''}));
       document.querySelectorAll('.sub,.subtitle,.nav-sub').forEach(el=>{if(el.textContent.includes('@'))el.textContent='문의: '+_contact.email;});
       const _adminList = cfgEmails(_cfg,['IT_ADMIN_1','IT_ADMIN_2','ADMIN_SP']);
       if(_adminList.length) ADMIN_EMAILS.splice(0,ADMIN_EMAILS.length,..._adminList);
