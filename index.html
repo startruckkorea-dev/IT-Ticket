@@ -335,8 +335,8 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="appr-block">
         <div class="appr-title">IT 담당자 <span style="font-size:11px;color:#605e5c;font-weight:400">(자동 지정)</span></div>
         <div class="form-row">
-          <input type="text" value="IT Support" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
-          <input type="email" value="stk_s_sharepoint@hyosung.com" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
+          <input type="text" id="cfg-it-mgr-name2" value="IT Support" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
+          <input type="email" id="cfg-it-mgr-email2" value="stk_s_sharepoint@hyosung.com" readonly style="border:1px solid #d2d0ce;border-radius:4px;padding:6px 10px;font-size:13px;background:#f3f2f1;color:#605e5c">
         </div>
       </div>
 
@@ -775,6 +775,9 @@ async function boot(account) {
       const _adminList = cfgEmails(_cfg,['IT_ADMIN_1','IT_ADMIN_2','ADMIN_SP']);
       if(_adminList.length) ADMIN_EMAILS.splice(0,ADMIN_EMAILS.length,..._adminList);
       Object.assign(IT_MANAGER, cfgVal(_cfg,'IT_MANAGER',IT_MANAGER));
+      [['cfg-it-mgr-name1',IT_MANAGER.name],['cfg-it-mgr-email1',IT_MANAGER.email],
+       ['cfg-it-mgr-name2',IT_MANAGER.name],['cfg-it-mgr-email2',IT_MANAGER.email],
+      ].forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.value=val;});
     }
     await loadEmployees();
     await checkApprover();
