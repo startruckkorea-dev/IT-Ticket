@@ -998,10 +998,8 @@ async function submitTicket(prefix) {
     const now = new Date().toISOString();
     const dateStr = now.substring(0,10);
     const prefix2 = type === 'Incident' ? 'INC' : type === 'Problem' ? 'PRB' : type === 'Change' ? 'CHG' : 'REQ';
-    const titleVal = prefix2 + '-' + dateStr + ' : ' + title;
-
     const fields = {
-      Title: titleVal,
+      Title: prefix2 + '-tmp',
       TicketType: type,
       Priority: priority,
       Systems: systems,
@@ -1043,6 +1041,7 @@ async function submitTicket(prefix) {
     };
     const item = await api('/sites/' + siteId + '/lists/IT_Requests/items', 'POST', { fields: coreFields });
     const reqId = item.id;
+    await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Title: prefix2 + '-' + dateStr + '-' + reqId } });
 
     // Step 2: 추가 필드 PATCH (실패 시 개별 시도)
     const extraFields = Object.assign({}, fields);
