@@ -1041,7 +1041,7 @@ async function submitTicket(prefix) {
     };
     const item = await api('/sites/' + siteId + '/lists/IT_Requests/items', 'POST', { fields: coreFields });
     const reqId = item.id;
-    await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Title: prefix2 + '-' + dateStr + '-' + reqId } });
+    await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Title: prefix2 + '-' + dateStr + '_ID-' + reqId } });
 
     // Step 2: 추가 필드 PATCH (실패 시 개별 시도)
     const extraFields = Object.assign({}, fields);
