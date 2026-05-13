@@ -120,6 +120,15 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 
 #loading { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); align-items: center; justify-content: center; z-index: 999; }
 #loading.show { display: flex; }
+/* ── Alert Modal ── */
+#it-alert-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center}
+#it-alert-modal.show{display:flex}
+.it-alert-box{background:#fff;border-radius:12px;padding:28px 32px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center}
+.it-alert-icon{font-size:2rem;margin-bottom:10px}
+.it-alert-title{font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:6px;line-height:1.6}
+.it-alert-sub{font-size:.8rem;color:#64748b;margin-bottom:20px;word-break:break-all}
+.it-alert-btn{background:#0078d4;color:#fff;border:none;border-radius:8px;padding:9px 32px;font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit}
+.it-alert-btn:hover{background:#0062b1}
 .loading-box { background: #fff; border-radius: 6px; padding: 28px 40px; font-size: 15px; color: #323130; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .spinner { width: 32px; height: 32px; border: 3px solid #edebe9; border-top: 3px solid #0078d4; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -623,6 +632,15 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 </div>
 
 <!-- 결재 확인 팝업 -->
+<div id="it-alert-modal">
+  <div class="it-alert-box">
+    <div class="it-alert-icon" id="it-alert-icon">✅</div>
+    <div class="it-alert-title" id="it-alert-title"></div>
+    <div class="it-alert-sub" id="it-alert-sub"></div>
+    <button class="it-alert-btn" onclick="document.getElementById('it-alert-modal').classList.remove('show')">확인</button>
+  </div>
+</div>
+
 <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;align-items:center;justify-content:center" onclick="event.stopPropagation()">
   <div style="background:#fff;border-radius:10px;padding:28px 28px 20px;max-width:420px;width:92%;box-shadow:0 4px 24px rgba(0,0,0,.2)">
     <div id="confirm-title" style="font-size:1rem;font-weight:700;color:#323130;margin-bottom:6px"></div>
@@ -1115,10 +1133,10 @@ async function submitTicket(prefix) {
       }});
     }
 
-    alert('티켓이 등록되었습니다! (번호: ' + reqId + ')');
+    showAlert('티켓이 등록되었습니다.', 'IT-'+new Date().toISOString().slice(0,10)+'_ID-'+reqId);
     resetForm(prefix);
     switchTab('list');
-  } catch(e) { alert('오류: ' + e.message); }
+  } catch(e) { showAlert('오류가 발생했습니다.', e.message, '⚠️'); }
   finally { loading(false); }
 }
 
@@ -1222,6 +1240,12 @@ function closeConfirm() {
     document.getElementById('detail-modal').style.display = 'flex';
   }
 }
+function showAlert(title, sub='', icon='✅') {
+  document.getElementById('it-alert-icon').textContent = icon;
+  document.getElementById('it-alert-title').textContent = title;
+  document.getElementById('it-alert-sub').textContent = sub;
+  document.getElementById('it-alert-modal').classList.add('show');
+}
 async function confirmApproval() {
   if (!_pendingApproval) return;
   const { apprId, action, reqId } = _pendingApproval;
@@ -1258,10 +1282,10 @@ async function processApproval(apprId, action, reqId, comment='') {
         await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: '승인완료' } });
       }
     }
-    alert(action + ' 처리되었습니다.');
+    showAlert(action+' 처리되었습니다.', '', action==='반려'?'❌':'✅');
     await loadApprovalQueue();
     await checkApprover();
-  } catch(e) { alert('오류: ' + e.message); }
+  } catch(e) { showAlert('오류가 발생했습니다.', e.message, '⚠️'); }
   finally { loading(false); }
 }
 
