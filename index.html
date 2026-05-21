@@ -1291,6 +1291,28 @@ async function processApproval(apprId, action, reqId, comment='') {
 }
 
 // ── Admin list ──
+
+async function exportITAdminExcel(){
+  loading(true,'Excel 생성 중...');
+  try{
+    const data = await api('/sites/'+siteId+'/lists/IT_Requests/items?$expand=fields&$top=500');
+    const status = (document.getElementById('admin-filter-status')||{value:''}).value;
+    const type = (document.getElementById('admin-filter-type')||{value:''}).value;
+    const search = ((document.getElementById('admin-filter-search')||{value:''}).value||'').toLowerCase();
+    let items = (data.value||[]).sort((a,b)=>b.id-a.id);
+    if(status) items = items.filter(i=>i.fields.Status===status);
+    if(type) items = items.filter(i=>i.fields.TicketType===type);
+    if(search) items = items.filter(i=>(i.fields.RequesterEmail||'').toLowerCase().includes(search)||(i.fields.Title||'').toLowerCase().includes(search));
+    if(!items.length){loading(false);alert('내보낼 데이터가 없습니다.');return;}
+    const headers = ['번호','신청자','제목','유형','우선순위','상태','신청일'];
+    const rows = [headers, ...items.map(i=>{const f=i.fields;return[i.id,f.RequesterEmail||'',f.Title||'',f.TicketType||'',f.Priority||'',f.Status||'',f.RequestDate?f.RequestDate.slice(0,10):''];})];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'IT Tickets');
+    XLSX.writeFile(wb, 'ITTicket_Admin_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  }catch(e){alert('Excel 생성 실패: '+e.message);}
+  finally{loading(false);}
+}
 async function loadAdminList() {
   if (!siteId) return;
   const tbody = document.getElementById('admin-body');
