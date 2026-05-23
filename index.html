@@ -680,6 +680,7 @@ const ADMIN_EMAILS = [
   '',
   ''
 ];
+let _configLoaded = false;
 
 // ✅ IT담당자 (최종 결재자 고정 - 결재 처리도 가능)
 const IT_MANAGER = { name: 'IT Support', email: '' };
@@ -817,6 +818,7 @@ async function boot(account) {
       const _itCEl=document.getElementById('it-contact-email');if(_itCEl)_itCEl.textContent='문의 Email: '+_contact.email;
       const _adminList = cfgEmails(_cfg,['IT_ADMIN_1','IT_ADMIN_2','IT_ADMIN_3','ADMIN_SP']);
       if(_adminList.length) ADMIN_EMAILS.splice(0,ADMIN_EMAILS.length,..._adminList);
+      _configLoaded = true;
       Object.assign(IT_MANAGER, cfgVal(_cfg,'IT_MANAGER',IT_MANAGER));
       [['cfg-it-mgr-name1',IT_MANAGER.name],['cfg-it-mgr-email1',IT_MANAGER.email],
        ['cfg-it-mgr-name2',IT_MANAGER.name],['cfg-it-mgr-email2',IT_MANAGER.email],
@@ -1140,6 +1142,15 @@ async function submitTicket(prefix) {
 // ── Tabs ──
 function switchTab(name) {
   if (name === 'admin') {
+    if (!_configLoaded) {
+      const _btn = document.getElementById('tab-admin-btn');
+      if (_btn) { _btn.style.opacity='0.6'; _btn.style.pointerEvents='none'; _btn.title='권한 확인 중...'; }
+      setTimeout(() => {
+        if (_btn) { _btn.style.opacity=''; _btn.style.pointerEvents=''; _btn.title=''; }
+        switchTab('admin');
+      }, 1500);
+      return;
+    }
     const _emails = typeof ADMIN_EMAILS !== 'undefined' ? ADMIN_EMAILS : [];
     const _user = typeof user !== 'undefined' ? user : null;
     const _isAdmin = _user && _emails.map(e=>e.toLowerCase()).some(e =>
