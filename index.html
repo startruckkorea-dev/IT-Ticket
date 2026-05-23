@@ -1122,7 +1122,7 @@ async function submitTicket(prefix) {
 
     for (const a of approvers) {
       await api('/sites/' + siteId + '/lists/IT_Approvals/items', 'POST', { fields: {
-        Title: reqId + '-' + a.order,
+        Title: 'IT-' + new Date().toISOString().slice(0,10) + '_ID-' + reqId + '-' + a.order,
         RequestID: parseInt(reqId),
         ApproverEmail: a.email,
         ApproverName: a.name,
