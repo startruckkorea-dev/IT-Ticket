@@ -828,6 +828,9 @@ async function boot(account) {
     await checkApprover();
     loadUnifiedBadge().catch(()=>{});
   } catch(e) { alert('SharePoint 연결 오류: ' + e.message); }
+
+  // 배지 자동 갱신 (60초마다)
+  setInterval(function(){ checkApprover(); try{loadApprovalBadge();}catch(e){} }, 60000);
 }
 
 // ── 관리자 여부 체크 (대소문자 무시) ──
