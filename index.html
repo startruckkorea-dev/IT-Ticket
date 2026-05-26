@@ -555,9 +555,9 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <table class="list-table">
         <thead><tr>
           <th>번호</th><th>유형</th><th>제목</th><th>시스템</th><th>우선순위</th><th>상태</th><th>등록일</th>
-        </tr></thead>
+        <th></th></tr></thead>
         <tbody id="list-body">
-          <tr><td colspan="7" style="text-align:center;padding:32px;color:#605e5c"><div class="dyn-dots" style="justify-content:center"><span></span><span></span><span></span></div></td></tr>
+          <tr><td colspan="8" style="text-align:center;padding:32px;color:#605e5c"><div class="dyn-dots" style="justify-content:center"><span></span><span></span><span></span></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -1202,9 +1202,9 @@ async function loadMyList() {
     const mine = data.value
       .filter(i => (i.fields.RequesterEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase())
       .sort((a,b) => new Date(b.fields.RequestDate) - new Date(a.fields.RequestDate));
-    if (!mine.length) { dynLoadEnd(); pgSet('list', [], null, '등록된 티켓이 없습니다.', 7); return; }
+    if (!mine.length) { dynLoadEnd(); pgSet('list', [], null, '등록된 티켓이 없습니다.', 8); return; }
     dynLoadEnd(); pgSet('list', mine, item => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + item.id + '</td><td>' + typeBadge(f.TicketType) + '</td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Title||'') + '</td><td style="font-size:11px;color:#605e5c;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td><td style="text-align:center">'+_wdBtn(item.id,'IT_Approvals','IT_Requests',f.Status)+'</td></tr>'; }, '등록된 티켓이 없습니다.', 7);
-  } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
+  } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
 }
 
 // ── Approval queue ──
