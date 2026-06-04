@@ -1097,13 +1097,15 @@ async function submitTicket(prefix) {
     // 사용자 입력 제목을 별도 필드(IncTitle)에 저장하지 않고 Title prefix에 포함
     // (Title은 이미 위에서 INC-날짜_ID-N 형식으로 고정)
 
-    // Step 2: 추가 필드 PATCH — INC는 각 필드 개별 PATCH (여러 줄 텍스트 타입 충돌 방지)
+    // Step 2: INC 필드 개별 PATCH
+    // SP 내부 필드명 매핑 + Enhanced Rich Text 컬럼은 HTML 래핑 필요
     if (isInc) {
+      const rt = v => v ? '<div>' + v + '</div>' : '';
       const incPatchFields = [
         { IncOccurredAt: fields.IncOccurredAt },
-        { Symptom: fields.Symptom },
-        { Scope: fields.Scope },
-        { Workaround: fields.Workaround },
+        { 'OccurredAt_x002c__x0020_Symptom_': rt(fields.Symptom) },
+        { 'Detail_x002c__x0020_ChangeType_x': rt(fields.Scope) },
+        { Workaround: rt(fields.Workaround) },
       ];
       for (const f of incPatchFields) {
         const val = Object.values(f)[0];
@@ -1416,7 +1418,10 @@ async function showDetail(requestId) {
   try {
     const r = await api('/sites/' + siteId + '/lists/IT_Requests/items/' + requestId + '?$expand=fields');
     const f = r.fields;
-    // Rich Text 필드 HTML 태그 제거 (SP Multi-line → ExternalClass div 래핑 처리)
+    // SP 내부 필드명 → 코드 필드명 매핑
+    f.Symptom    = f['OccurredAt_x002c__x0020_Symptom_'] || f.Symptom;
+    f.Scope      = f['Detail_x002c__x0020_ChangeType_x'] || f.Scope;
+    // Rich Text 필드 HTML 태그 제거
     ['Detail','ChangeReason','Symptom','Scope','Workaround','Systems','Impact','AcctPurpose','ReqEnv'].forEach(k => {
       if (f[k]) f[k] = stripHtml(f[k]);
     });
