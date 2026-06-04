@@ -1083,7 +1083,6 @@ async function submitTicket(prefix) {
       Title: fields.Title,
       TicketType: fields.TicketType,
       Priority: fields.Priority,
-      Systems: fields.Systems,
       Status: fields.Status,
       RequesterEmail: fields.RequesterEmail,
       RequestDate: fields.RequestDate,
@@ -1092,7 +1091,14 @@ async function submitTicket(prefix) {
     const reqId = item.id;
     await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Title: prefix2 + '-' + dateStr + '_ID-' + reqId } });
 
-    // Step 2: 추가 필드 PATCH (실패 시 개별 시도)
+    // Step 1-b: Systems 별도 PATCH (여러 줄 텍스트 타입 — coreFields POST에서 제외)
+    if (fields.Systems) {
+      try {
+        await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Systems: fields.Systems } });
+      } catch(e) { console.warn('Systems patch failed:', e.message); }
+    }
+
+    // Step 2: 나머지 추가 필드 PATCH (실패 시 개별 시도)
     const extraFields = Object.assign({}, fields);
     delete extraFields.Title; delete extraFields.TicketType; delete extraFields.Priority;
     delete extraFields.Systems; delete extraFields.Status; delete extraFields.RequesterEmail; delete extraFields.RequestDate;
