@@ -1384,11 +1384,20 @@ async function loadAdminList() {
 }
 
 // ── Show detail ──
+function stripHtml(v) {
+  if (!v || typeof v !== 'string') return v;
+  return v.replace(/<[^>]*>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ').replace(/&#58;/g,':').trim();
+}
+
 async function showDetail(requestId) {
   loading(true);
   try {
     const r = await api('/sites/' + siteId + '/lists/IT_Requests/items/' + requestId + '?$expand=fields');
     const f = r.fields;
+    // Rich Text 필드 HTML 태그 제거 (SP Multi-line → ExternalClass div 래핑 처리)
+    ['Detail','ChangeReason','Symptom','Scope','Workaround','Systems','Impact','AcctPurpose','ReqEnv'].forEach(k => {
+      if (f[k]) f[k] = stripHtml(f[k]);
+    });
     const sec = (t) => '<div style="margin:16px 0 8px;font-size:13px;font-weight:700;color:#1F4E79;padding:6px 10px;background:#EFF6FF;border-left:3px solid #1F4E79;border-radius:3px">' + t + '</div>';
     const row = (l, v, full) => {
       const val = (v === undefined || v === null || v === '') ? '-' : v;
