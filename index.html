@@ -1051,7 +1051,6 @@ async function submitTicket(prefix) {
       Title: prefix2 + '-tmp',
       TicketType: type,
       Priority: priority,
-      Systems: systems,
       Status: '대기',
       RequesterEmail: user.email || user.username,
       RequestDate: now,
@@ -1091,12 +1090,12 @@ async function submitTicket(prefix) {
     const reqId = item.id;
     await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Title: prefix2 + '-' + dateStr + '_ID-' + reqId } });
 
-    // Step 1-b: Systems 별도 PATCH (여러 줄 텍스트 타입 — coreFields POST에서 제외)
-    if (fields.Systems) {
-      try {
-        await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Systems: fields.Systems } });
-      } catch(e) { console.warn('Systems patch failed:', e.message); }
-    }
+    // Step 1-b: 여러 줄 텍스트 필드 별도 PATCH (Systems, 사용자 입력 제목)
+    try {
+      await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Systems: systems } });
+    } catch(e) { console.warn('Systems patch failed:', e.message); }
+    // 사용자 입력 제목을 별도 필드(IncTitle)에 저장하지 않고 Title prefix에 포함
+    // (Title은 이미 위에서 INC-날짜_ID-N 형식으로 고정)
 
     // Step 2: 나머지 추가 필드 PATCH (실패 시 개별 시도)
     const extraFields = Object.assign({}, fields);
