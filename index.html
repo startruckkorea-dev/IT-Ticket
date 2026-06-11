@@ -1244,7 +1244,7 @@ async function loadMyList() {
       .filter(i => (i.fields.RequesterEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase())
       .sort((a,b) => new Date(b.fields.RequestDate) - new Date(a.fields.RequestDate));
     if (!mine.length) { dynLoadEnd(); pgSet('list', [], null, '등록된 티켓이 없습니다.', 8); return; }
-    dynLoadEnd(); pgSet('list', mine, item => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + item.id + '</td><td>' + typeBadge(f.TicketType) + '</td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Title||'') + '</td><td style="font-size:11px;color:#605e5c;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td><td style="text-align:center;vertical-align:middle;padding:6px 8px;">'+_wdBtn(item.id,'IT_Approvals','IT_Requests',f.Status)+'</td></tr>'; }, '등록된 티켓이 없습니다.', 7);
+    dynLoadEnd(); pgSet('list', mine, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td>' + typeBadge(f.TicketType) + '</td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Title||'') + '</td><td style="font-size:11px;color:#605e5c;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td><td style="text-align:center;vertical-align:middle;padding:6px 8px;">'+_wdBtn(item.id,'IT_Approvals','IT_Requests',f.Status)+'</td></tr>'; }, '등록된 티켓이 없습니다.', 7);
   } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
 }
 
@@ -1264,10 +1264,10 @@ async function loadApprovalQueue() {
     const _mineMap = _mineRaw.reduce(function(acc,i){var rid=String(i.fields.RequestID);if(!acc[rid]||i.fields.ApprovalOrder<acc[rid].fields.ApprovalOrder)acc[rid]=i;return acc;},{});
     const mine = Object.values(_mineMap).sort(function(a,b){ return b.fields.RequestID - a.fields.RequestID; });
     if (!mine.length) { dynLoadEnd(); pgSet('appr', [], null, '결재 대기 항목이 없습니다.', 8); return; }
-    const rows = mine.map(function(item) {
+    const rows = mine.map(function(item, idx) {
       const f = item.fields;
       const rf = reqMap[String(f.RequestID)] || {};
-      return '<tr onclick="showDetail(' + f.RequestID + ')" style="cursor:pointer"><td style="color:#0078d4">' + f.RequestID + '</td><td>' + (rf.RequesterEmail||'') + '</td><td>' + typeBadge(rf.TicketType) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (rf.Title||'') + '</td><td>' + priorityBadge(rf.Priority) + '</td><td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td><td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td><td onclick="event.stopPropagation()"><button class="btn-approve" onclick="showConfirm(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> <button class="btn-reject" onclick="showConfirm(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button></td></tr>';
+      return '<tr onclick="showDetail(' + f.RequestID + ')" style="cursor:pointer"><td style="color:#0078d4">' + (idx+1) + '</td><td>' + (rf.RequesterEmail||'') + '</td><td>' + typeBadge(rf.TicketType) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (rf.Title||'') + '</td><td>' + priorityBadge(rf.Priority) + '</td><td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td><td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td><td onclick="event.stopPropagation()"><button class="btn-approve" onclick="showConfirm(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> <button class="btn-reject" onclick="showConfirm(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button></td></tr>';
     });
     dynLoadEnd(); pgSet('appr', rows, function(r){ return r; }, '결재 대기 항목이 없습니다.', 8);
     const badge = document.getElementById('appr-badge');
@@ -1403,7 +1403,7 @@ async function loadAdminList() {
       (i.fields.Title||'').toLowerCase().includes(filterSearch)
     );
     document.getElementById('admin-count').textContent = '총 ' + items.length + '건';
-    dynLoadEnd(); pgSet('admin', items, item => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + item.id + '</td><td>' + (f.RequesterEmail||'') + '</td><td>' + typeBadge(f.TicketType) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Title||'') + '</td><td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td></tr>'; }, '조회 결과가 없습니다.', 8);
+    dynLoadEnd(); pgSet('admin', items, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td>' + (f.RequesterEmail||'') + '</td><td>' + typeBadge(f.TicketType) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Title||'') + '</td><td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td></tr>'; }, '조회 결과가 없습니다.', 8);
   } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
 }
 
@@ -1743,7 +1743,8 @@ function pgRender(scopeId) {
   if (!slice.length) {
     tbody.innerHTML = '<tr><td colspan="' + (colSpan||7) + '" style="text-align:center;padding:32px;color:#605e5c">' + (emptyMsg||'항목이 없습니다.') + '</td></tr>';
   } else {
-    tbody.innerHTML = slice.map(renderer).join('');
+    const offset = cur * PAGE_SIZE;
+    tbody.innerHTML = slice.map((item, idx) => renderer(item, offset + idx)).join('');
   }
   let pgEl = document.getElementById(scopeId + '-pagination');
   if (!pgEl) {
