@@ -1744,7 +1744,8 @@ function pgRender(scopeId) {
     tbody.innerHTML = '<tr><td colspan="' + (colSpan||7) + '" style="text-align:center;padding:32px;color:#605e5c">' + (emptyMsg||'항목이 없습니다.') + '</td></tr>';
   } else {
     const offset = cur * PAGE_SIZE;
-    tbody.innerHTML = slice.map((item, idx) => renderer(item, offset + idx)).join('');
+    const total2 = items.length;
+    tbody.innerHTML = slice.map((item, idx) => renderer(item, total2 - (offset + idx) - 1)).join('');
   }
   let pgEl = document.getElementById(scopeId + '-pagination');
   if (!pgEl) {
