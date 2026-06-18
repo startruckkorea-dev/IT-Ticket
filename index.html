@@ -1214,6 +1214,10 @@ async function submitTicket(prefix) {
 
 // ── Tabs ──
 function switchTab(name) {
+  // 탭 전환 시 CoD/VPN 안내 박스 항상 초기화
+  ['chg-cod-notice','chg-vpn-notice','cr-cod-notice','cr-vpn-notice'].forEach(id => {
+    const b = document.getElementById(id); if(b) b.style.display='none';
+  });
   if (name === 'admin') {
     if (!_configLoaded) {
       const _btn = document.getElementById('tab-admin-btn');
