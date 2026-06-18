@@ -373,6 +373,12 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="file-area" onclick="document.getElementById('inc-file-input').click()">
         <input type="file" id="inc-file-input" multiple onchange="onFileSelect(event,'inc')">
         <div class="hint">📎 클릭하여 파일 첨부 (스크린샷, 로그 등 / 최대 10MB)</div>
+        <div id="cr-cod-notice" style="display:none;margin-top:8px;background:#fff4ed;border-left:3px solid #f3a86a;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#7d3c00">
+          ⚠️ CoD 신규 신청 or 교체 시 반드시 <b>CoD_Request_Form</b> 작성 완료 파일을 첨부해주세요.
+        </div>
+        <div id="cr-vpn-notice" style="display:none;margin-top:8px;background:#fff4ed;border-left:3px solid #f3a86a;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#7d3c00">
+          ⚠️ STK VPN 신규 신청 시 반드시 <b>STK-VPN_Request_Form</b> 작성 완료 파일을 첨부해주세요.
+        </div>
       </div>
       <div class="file-list" id="inc-file-list"></div>
 
@@ -567,14 +573,9 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="file-area" onclick="document.getElementById('chg-file-input').click()">
         <input type="file" id="chg-file-input" multiple onchange="onFileSelect(event,'chg')">
         <div class="hint">📎 클릭하여 파일 첨부 (최대 10MB)</div>
+                
+        
       </div>
-      <div id="chg-cod-attach" style="display:none;margin-top:8px;background:#fff4ed;border-left:3px solid #f3a86a;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#7d3c00">
-        ⚠️ CoD 신규 신청 or 교체 시 반드시 <b>CoD_Request_Form</b> 작성 완료 파일을 첨부해주세요.
-      </div>
-      <div id="chg-vpn-attach" style="display:none;margin-top:6px;background:#fff4ed;border-left:3px solid #f3a86a;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#7d3c00">
-        ⚠️ STK VPN 신규 신청 시 반드시 <b>STK-VPN_Request_Form</b> 작성 완료 파일을 첨부해주세요.
-      </div>
-      <div class="file-area" style="display:none">
       <div class="file-list" id="chg-file-list"></div>
 
       <div class="btn-row">
@@ -889,16 +890,16 @@ function onSysCheck(cb) {
   label.classList.toggle('checked', cb.checked);
   // CoD 선택 시 안내 박스 토글
   // Change탭일 때만 CoD/VPN 안내 박스 토글
-  const _isChangTab = _activeTab === 'change';
+  const _isChangTab = document.getElementById('tab-change-btn') && document.getElementById('tab-change-btn').classList.contains('active');
   if (_isChangTab) {
-    const codBox = document.getElementById('chg-cod-notice');
-    if (codBox && cb.value === 'CoD') codBox.style.display = cb.checked ? 'block' : 'none';
-    const codAttach = document.getElementById('chg-cod-attach');
-    if (codAttach && cb.value === 'CoD') codAttach.style.display = cb.checked ? 'block' : 'none';
-    const vpnBox = document.getElementById('chg-vpn-notice');
-    if (vpnBox && cb.value === 'STK VPN') vpnBox.style.display = cb.checked ? 'block' : 'none';
-    const vpnAttach = document.getElementById('chg-vpn-attach');
-    if (vpnAttach && cb.value === 'STK VPN') vpnAttach.style.display = cb.checked ? 'block' : 'none';
+    ['chg-cod-notice','cr-cod-notice'].forEach(id => {
+      const box = document.getElementById(id);
+      if (box && cb.value === 'CoD') box.style.display = cb.checked ? 'block' : 'none';
+    });
+    ['chg-vpn-notice','cr-vpn-notice'].forEach(id => {
+      const box = document.getElementById(id);
+      if (box && cb.value === 'STK VPN') box.style.display = cb.checked ? 'block' : 'none';
+    });
   }
 }
 function getSelectedSystems(gridId, otherId) {
@@ -1216,11 +1217,9 @@ async function submitTicket(prefix) {
 }
 
 // ── Tabs ──
-let _activeTab = 'change';
 function switchTab(name) {
-  _activeTab = name;
   // 탭 전환 시 CoD/VPN 안내 박스 항상 초기화
-  ['chg-cod-notice','chg-vpn-notice','chg-cod-attach','chg-vpn-attach'].forEach(id => {
+  ['chg-cod-notice','chg-vpn-notice','cr-cod-notice','cr-vpn-notice'].forEach(id => {
     const b = document.getElementById(id); if(b) b.style.display='none';
   });
   if (name === 'admin') {
