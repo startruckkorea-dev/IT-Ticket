@@ -890,7 +890,7 @@ function onSysCheck(cb) {
   label.classList.toggle('checked', cb.checked);
   // CoD 선택 시 안내 박스 토글
   // Change탭일 때만 CoD/VPN 안내 박스 토글
-  const _isChangTab = document.getElementById('tab-change-btn') && document.getElementById('tab-change-btn').classList.contains('active');
+  const _isChangTab = _activeTab === 'change';
   if (_isChangTab) {
     ['chg-cod-notice','cr-cod-notice'].forEach(id => {
       const box = document.getElementById(id);
@@ -1217,7 +1217,9 @@ async function submitTicket(prefix) {
 }
 
 // ── Tabs ──
+let _activeTab = 'change';
 function switchTab(name) {
+  _activeTab = name;
   // 탭 전환 시 CoD/VPN 안내 박스 항상 초기화
   ['chg-cod-notice','chg-vpn-notice','cr-cod-notice','cr-vpn-notice'].forEach(id => {
     const b = document.getElementById(id); if(b) b.style.display='none';
