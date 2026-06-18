@@ -326,6 +326,11 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         <a href="https://ehyosung.sharepoint.com.mcas.ms/sites/STK-NAS/SitePages/STK-Policies-Guide.aspx" target="_blank" style="color:#0078d4;font-weight:600;text-decoration:underline">STK-NAS &gt; STK-RPA &gt; STK Policies &amp; Guidelines &gt; ITS &gt; Infrastructure &gt; Templates</a><br>
         <span style="color:#605e5c;font-size:.75rem">위 링크 접속 후 <b>CoD_Request_Form</b> 관련 파일을 다운로드하여 작성 후 첨부해주세요.</span>
       </div>
+      <div id="inc-vpn-notice" style="display:none;margin-top:10px;background:#f0f6ff;border:1px solid #c7d8f5;border-radius:6px;padding:9px 14px;font-size:.78rem;color:#323130;line-height:1.8">
+        📎 <b>STK VPN 신규 신청용 템플릿 다운 참고 링크</b><br>
+        <a href="https://ehyosung.sharepoint.com.mcas.ms/sites/STK-NAS/SitePages/STK-Policies-Guide.aspx" target="_blank" style="color:#0078d4;font-weight:600;text-decoration:underline">STK-NAS &gt; STK-RPA &gt; STK Policies &amp; Guidelines &gt; ITS &gt; Infrastructure &gt; Templates</a><br>
+        <span style="color:#605e5c;font-size:.75rem">위 링크 접속 후 <b>STK-VPN_Request_Form</b> 관련 파일을 다운로드하여 작성 후 첨부해주세요.</span>
+      </div>
       <div class="form-row full" style="margin-top:12px">
         <div class="form-group">
           <label>기타 시스템</label>
@@ -379,6 +384,9 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
                 <div id="cr-cod-notice" style="display:none;margin-top:8px;background:#fff4ed;border-left:3px solid #f3a86a;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#7d3c00">
           ⚠️ CoD 신규 신청 or 교체 시 반드시 <b>CoD_Request_Form</b> 작성 완료 파일을 첨부해주세요.
         </div>
+        <div id="cr-vpn-notice" style="display:none;margin-top:8px;background:#eef5ff;border-left:3px solid #7ab0f5;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#1a3a6e">
+          ⚠️ STK VPN 신규 신청 시 반드시 <b>STK-VPN_Request_Form</b> 작성 완료 파일을 첨부해주세요.
+        </div>
       </div>
       <div class="file-list" id="inc-file-list"></div>
 
@@ -428,6 +436,11 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         📎 <b>CoD 신규 신청 or 교체용 템플릿 다운 참고 링크</b><br>
         <a href="https://ehyosung.sharepoint.com.mcas.ms/sites/STK-NAS/SitePages/STK-Policies-Guide.aspx" target="_blank" style="color:#0078d4;font-weight:600;text-decoration:underline">STK-NAS &gt; STK-RPA &gt; STK Policies &amp; Guidelines &gt; ITS &gt; Infrastructure &gt; Templates</a><br>
         <span style="color:#605e5c;font-size:.75rem">위 링크 접속 후 <b>CoD_Request_Form</b> 관련 파일을 다운로드하여 작성 후 첨부해주세요.</span>
+      </div>
+      <div id="chg-vpn-notice" style="display:none;margin-top:10px;background:#f0f6ff;border:1px solid #c7d8f5;border-radius:6px;padding:9px 14px;font-size:.78rem;color:#323130;line-height:1.8">
+        📎 <b>STK VPN 신규 신청용 템플릿 다운 참고 링크</b><br>
+        <a href="https://ehyosung.sharepoint.com.mcas.ms/sites/STK-NAS/SitePages/STK-Policies-Guide.aspx" target="_blank" style="color:#0078d4;font-weight:600;text-decoration:underline">STK-NAS &gt; STK-RPA &gt; STK Policies &amp; Guidelines &gt; ITS &gt; Infrastructure &gt; Templates</a><br>
+        <span style="color:#605e5c;font-size:.75rem">위 링크 접속 후 <b>STK-VPN_Request_Form</b> 관련 파일을 다운로드하여 작성 후 첨부해주세요.</span>
       </div>
       <div class="form-row full" style="margin-top:12px">
         <div class="form-group">
@@ -570,6 +583,9 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         <div class="hint">📎 클릭하여 파일 첨부 (최대 10MB)</div>
                 <div id="ir-cod-notice" style="display:none;margin-top:8px;background:#fff4ed;border-left:3px solid #f3a86a;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#7d3c00">
           ⚠️ CoD 신규 신청 or 교체 시 반드시 <b>CoD_Request_Form</b> 작성 완료 파일을 첨부해주세요.
+        </div>
+        <div id="ir-vpn-notice" style="display:none;margin-top:8px;background:#eef5ff;border-left:3px solid #7ab0f5;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#1a3a6e">
+          ⚠️ STK VPN 신규 신청 시 반드시 <b>STK-VPN_Request_Form</b> 작성 완료 파일을 첨부해주세요.
         </div>
       </div>
       <div class="file-list" id="chg-file-list"></div>
@@ -888,6 +904,10 @@ function onSysCheck(cb) {
   ['chg-cod-notice','inc-cod-notice','cr-cod-notice','ir-cod-notice'].forEach(id => {
     const box = document.getElementById(id);
     if (box && cb.value === 'CoD') box.style.display = cb.checked ? 'block' : 'none';
+  });
+  ['chg-vpn-notice','inc-vpn-notice','cr-vpn-notice','ir-vpn-notice'].forEach(id => {
+    const box = document.getElementById(id);
+    if (box && cb.value === 'STK VPN') box.style.display = cb.checked ? 'block' : 'none';
   });
 }
 function getSelectedSystems(gridId, otherId) {
