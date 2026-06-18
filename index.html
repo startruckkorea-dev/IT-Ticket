@@ -889,14 +889,18 @@ function onSysCheck(cb) {
   const label = cb.parentElement;
   label.classList.toggle('checked', cb.checked);
   // CoD 선택 시 안내 박스 토글
-  ['chg-cod-notice','cr-cod-notice'].forEach(id => {
-    const box = document.getElementById(id);
-    if (box && cb.value === 'CoD') box.style.display = cb.checked ? 'block' : 'none';
-  });
-  ['chg-vpn-notice','cr-vpn-notice'].forEach(id => {
-    const box = document.getElementById(id);
-    if (box && cb.value === 'STK VPN') box.style.display = cb.checked ? 'block' : 'none';
-  });
+  // Change탭일 때만 CoD/VPN 안내 박스 토글
+  const _isChangTab = document.getElementById('tab-change-btn') && document.getElementById('tab-change-btn').classList.contains('active');
+  if (_isChangTab) {
+    ['chg-cod-notice','cr-cod-notice'].forEach(id => {
+      const box = document.getElementById(id);
+      if (box && cb.value === 'CoD') box.style.display = cb.checked ? 'block' : 'none';
+    });
+    ['chg-vpn-notice','cr-vpn-notice'].forEach(id => {
+      const box = document.getElementById(id);
+      if (box && cb.value === 'STK VPN') box.style.display = cb.checked ? 'block' : 'none';
+    });
+  }
 }
 function getSelectedSystems(gridId, otherId) {
   const checks = document.querySelectorAll('#' + gridId + ' input[type="checkbox"]:checked');
