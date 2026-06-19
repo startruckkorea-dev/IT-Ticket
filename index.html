@@ -898,6 +898,36 @@ function initSysGrid(gridId) {
     '<input type="checkbox" value="' + s + '" onchange="onSysCheck(this)"> ' + s + '</label>'
   ).join('');
 }
+function syncNoticeBoxes() {
+  if (_activeTab !== 'change') {
+    // Change탭 아닐 때는 모두 숨김
+    ['chg-cod-notice','chg-vpn-notice','chg-afs-notice',
+     'chg-cod-attach','chg-vpn-attach','chg-afs-attach'].forEach(id => {
+      const b = document.getElementById(id); if(b) b.style.display='none';
+    });
+    return;
+  }
+  // Change탭 — 현재 체크박스 상태대로 박스 동기화
+  const grid = document.getElementById('chg-sys-grid');
+  if (!grid) return;
+  const checked = new Set(Array.from(grid.querySelectorAll('input:checked')).map(el=>el.value));
+  const map = {
+    'CoD':               ['chg-cod-notice','chg-cod-attach'],
+    'STK VPN':           ['chg-vpn-notice','chg-vpn-attach'],
+  };
+  Object.entries(map).forEach(([val,ids]) => {
+    ids.forEach(id => {
+      const b = document.getElementById(id);
+      if(b) b.style.display = checked.has(val) ? 'block' : 'none';
+    });
+  });
+  const afsChecked = checked.has('STK Autofocus DMS') || checked.has('STK Autofocus CRM');
+  ['chg-afs-notice','chg-afs-attach'].forEach(id => {
+    const b = document.getElementById(id);
+    if(b) b.style.display = afsChecked ? 'block' : 'none';
+  });
+}
+
 function onSysCheck(cb) {
   const label = cb.parentElement;
   label.classList.toggle('checked', cb.checked);
@@ -1061,7 +1091,7 @@ function resetForm(prefix) {
     document.getElementById('chg-priority').style.background = '';
     document.getElementById('chg-req-from').value = '';
     document.getElementById('chg-req-to').value = '';
-    document.querySelectorAll('#chg-sys-grid input').forEach(cb => { cb.checked = false; cb.parentElement.classList.remove('checked'); }); ['chg-cod-notice','chg-vpn-notice','chg-afs-notice','cr-cod-notice','cr-vpn-notice','chg-cod-attach','chg-vpn-attach','chg-afs-attach'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='none';});
+    document.querySelectorAll('#chg-sys-grid input').forEach(cb => { cb.checked = false; cb.parentElement.classList.remove('checked'); }); ['cr-cod-notice','cr-vpn-notice'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='none';});
     chgFiles = []; renderFiles('chg');
     ['chg-a1-name','chg-a1-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     ['chg-a1-dept','chg-a1-team','chg-a1-person'].forEach(id => { const el = document.getElementById(id); if(el) { el.selectedIndex = 0; el.disabled = id !== 'chg-a1-dept'; } });
@@ -1242,7 +1272,8 @@ async function submitTicket(prefix) {
 let _activeTab = 'change';
 function switchTab(name) {
   _activeTab = name;
-  // 탭 전환 시 CoD/VPN 안내 박스 항상 초기화
+  // 탭 전환 시 체크박스 상태 기반으로 박스 재동기화
+  setTimeout(syncNoticeBoxes, 50);
   ['chg-cod-notice','chg-vpn-notice','cr-cod-notice','cr-vpn-notice'].forEach(id => {
     const b = document.getElementById(id); if(b) b.style.display='none';
   });
