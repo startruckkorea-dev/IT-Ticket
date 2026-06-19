@@ -903,16 +903,26 @@ function onSysCheck(cb) {
   label.classList.toggle('checked', cb.checked);
   // Change탭일 때만 CoD/VPN 안내 박스 토글
   if (typeof _activeTab !== 'undefined' && _activeTab !== 'change') return;
+  // 단순 토글 (1:1)
   const notices = {
-    'CoD':               ['chg-cod-notice', 'chg-cod-attach'],
-    'STK VPN':           ['chg-vpn-notice', 'chg-vpn-attach'],
-    'STK Autofocus DMS': ['chg-afs-notice', 'chg-afs-attach'],
-    'STK Autofocus CRM': ['chg-afs-notice', 'chg-afs-attach'],
+    'CoD':     ['chg-cod-notice', 'chg-cod-attach'],
+    'STK VPN': ['chg-vpn-notice', 'chg-vpn-attach'],
   };
   (notices[cb.value] || []).forEach(id => {
     const box = document.getElementById(id);
     if (box) box.style.display = cb.checked ? 'block' : 'none';
   });
+  // Autofocus CRM/DMS — 둘 중 하나라도 체크면 유지
+  if (cb.value === 'STK Autofocus DMS' || cb.value === 'STK Autofocus CRM') {
+    const afsChecked = ['STK Autofocus DMS','STK Autofocus CRM'].some(v => {
+      const el = document.querySelector('#chg-sys-grid input[value="'+v+'"]:checked');
+      return !!el;
+    });
+    ['chg-afs-notice','chg-afs-attach'].forEach(id => {
+      const box = document.getElementById(id);
+      if (box) box.style.display = afsChecked ? 'block' : 'none';
+    });
+  }
 }
 function getSelectedSystems(gridId, otherId) {
   const checks = document.querySelectorAll('#' + gridId + ' input[type="checkbox"]:checked');
