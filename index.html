@@ -738,8 +738,7 @@ const IT_MANAGER = { name: 'IT Support', email: '' };
 
 const SYSTEMS = [
   'STK APS', 'STK WMC', 'STK RAS', 'STK KR-Intranet', 'SharePoint', 'STK Intra CV',
-  'STK SAP-Be1', 'STK WINCMS', 'STK Autofocus DMS', 'STK Autofocus IMS/Parts',
-  'STK VPN', 'Hyosung M365', 'Hyosung GUMS',
+  'STK SAP-Be1', 'STK WINCMS', 'STK Autofocus DMS', 'STK Autofocus CRM', 'STK VPN', 'Hyosung M365', 'Hyosung GUMS',
   'Hyosung Viva Engage', 'CoD', '기타'
 ];
 
@@ -908,6 +907,7 @@ function onSysCheck(cb) {
     'CoD':               ['chg-cod-notice', 'chg-cod-attach'],
     'STK VPN':           ['chg-vpn-notice', 'chg-vpn-attach'],
     'STK Autofocus DMS': ['chg-afs-notice', 'chg-afs-attach'],
+    'STK Autofocus CRM': ['chg-afs-notice', 'chg-afs-attach'],
   };
   (notices[cb.value] || []).forEach(id => {
     const box = document.getElementById(id);
