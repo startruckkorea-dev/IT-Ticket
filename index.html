@@ -905,8 +905,9 @@ function onSysCheck(cb) {
   // Change탭일 때만 CoD/VPN 안내 박스 토글
   if (typeof _activeTab !== 'undefined' && _activeTab !== 'change') return;
   const notices = {
-    'CoD':     ['chg-cod-notice', 'chg-cod-attach'],
-    'STK VPN': ['chg-vpn-notice', 'chg-vpn-attach']
+    'CoD':               ['chg-cod-notice', 'chg-cod-attach'],
+    'STK VPN':           ['chg-vpn-notice', 'chg-vpn-attach'],
+    'STK Autofocus DMS': ['chg-afs-notice', 'chg-afs-attach'],
   };
   (notices[cb.value] || []).forEach(id => {
     const box = document.getElementById(id);
