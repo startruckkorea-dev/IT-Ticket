@@ -1454,7 +1454,7 @@ async function processApproval(apprId, action, reqId, comment='') {
 
 // ── Admin list ──
 
-async async function exportITAdminExcel(){
+async function exportITAdminExcel(){
   loading(true,'Excel 생성 중...');
   try{
     const data = await api('/sites/'+siteId+'/lists/IT_Requests/items?$expand=fields&$top=500');
