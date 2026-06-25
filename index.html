@@ -1467,80 +1467,47 @@ async async function exportITAdminExcel(){
     if(search) items = items.filter(i=>(i.fields.RequesterEmail||'').toLowerCase().includes(search)||(i.fields.Title||'').toLowerCase().includes(search));
     if(!items.length){loading(false);alert('내보낼 데이터가 없습니다.');return;}
 
-    // 결재자 정보 병합 (IT_Approvals)
+    // 결재자 정보 병합
     let apprMap = {};
-    try {
+    try{
       const apprData = await api('/sites/'+siteId+'/lists/IT_Approvals/items?$expand=fields&$top=2000');
       (apprData.value||[]).forEach(a=>{
-        const f = a.fields;
-        const rid = f.RequestID;
-        if(!apprMap[rid]) apprMap[rid] = [];
-        apprMap[rid].push({ role: f.ApproverRole||'', name: f.ApproverName||'', status: f.Status||'' });
+        const f=a.fields, rid=f.RequestID;
+        if(!apprMap[rid]) apprMap[rid]=[];
+        apprMap[rid].push({role:f.ApproverRole||'',name:f.ApproverName||'',status:f.Status||''});
       });
-    } catch(e){}
+    }catch(e){}
 
     const headers = [
-      '번호', '티켓 ID', '유형', '우선순위', '제목',
-      '신청자 이메일', '신청 부서', '대상 시스템',
-      '상세 내용', '상태',
-      '1차 결재자', '1차 상태',
-      '2차 결재자(IT)', '2차 상태',
-      '신청일', '최종 처리일'
+      '번호','티켓 ID','유형','우선순위','제목',
+      '신청자 이메일','대상 시스템','상세 내용','상태',
+      '1차 결재자','1차 상태','2차 결재자(IT)','2차 상태',
+      '신청일','최종 수정일'
     ];
 
     const rows = [headers, ...items.map(i=>{
-      const f = i.fields;
-      const apprList = apprMap[i.id] || [];
-      const a1 = apprList.find(a=>a.role&&a.role.includes('Line Manager'))||apprList[0]||{};
-      const a2 = apprList.find(a=>a.role&&(a.role.includes('IT')||a.role.includes('담당')))||apprList[1]||{};
-
-      // 대상 시스템 파싱 (Systems 필드)
-      const systems = (f.Systems||'').replace(/;/g,', ');
-
-      return [
-        i.id,
-        f.Title||'',
-        f.TicketType||'',
-        f.Priority||'',
-        f.Subject||f.Title||'',
-        f.RequesterEmail||'',
-        f.Department||'',
-        systems||f.OtherSystem||'',
-        (f.Description||'').replace(/<[^>]+>/g,'').slice(0,200),
-        f.Status||'',
-        a1.name||'',
-        a1.status||'',
-        a2.name||'',
-        a2.status||'',
+      const f=i.fields;
+      const al=apprMap[i.id]||[];
+      const a1=al.find(a=>a.role&&a.role.includes('Line'))||al[0]||{};
+      const a2=al.find(a=>a.role&&(a.role.includes('IT')||a.role.includes('담당')))||al[1]||{};
+      const sys=(f.Systems||'').replace(/;/g,', ')||(f.OtherSystem||'');
+      const desc=(f.Description||'').replace(/<[^>]+>/g,'').slice(0,200);
+      return[
+        i.id, f.Title||'', f.TicketType||'', f.Priority||'', f.Subject||f.Title||'',
+        f.RequesterEmail||'', sys, desc, f.Status||'',
+        a1.name||'', a1.status||'', a2.name||'', a2.status||'',
         f.RequestDate?f.RequestDate.slice(0,10):'',
         f.Modified?f.Modified.slice(0,10):''
       ];
     })];
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-
-    // 컬럼 너비 설정
-    ws['!cols'] = [
-      {wch:8},{wch:28},{wch:14},{wch:10},{wch:36},
-      {wch:28},{wch:16},{wch:28},
-      {wch:40},{wch:12},
-      {wch:16},{wch:10},
-      {wch:16},{wch:10},
+    ws['!cols']=[
+      {wch:7},{wch:28},{wch:14},{wch:10},{wch:36},
+      {wch:28},{wch:28},{wch:40},{wch:12},
+      {wch:16},{wch:10},{wch:16},{wch:10},
       {wch:12},{wch:12}
     ];
-
-    // 헤더 행 스타일
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for(let C=range.s.c; C<=range.e.c; C++){
-      const addr = XLSX.utils.encode_cell({r:0, c:C});
-      if(!ws[addr]) continue;
-      ws[addr].s = {
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: '1F3864' } },
-        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
-      };
-    }
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'IT Tickets');
     XLSX.writeFile(wb, 'ITTicket_Admin_'+new Date().toISOString().slice(0,10)+'.xlsx');
