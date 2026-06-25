@@ -1454,7 +1454,7 @@ async function processApproval(apprId, action, reqId, comment='') {
 
 // ── Admin list ──
 
-async function exportITAdminExcel(){
+async async function exportITAdminExcel(){
   loading(true,'Excel 생성 중...');
   try{
     const data = await api('/sites/'+siteId+'/lists/IT_Requests/items?$expand=fields&$top=500');
@@ -1466,9 +1466,81 @@ async function exportITAdminExcel(){
     if(type) items = items.filter(i=>i.fields.TicketType===type);
     if(search) items = items.filter(i=>(i.fields.RequesterEmail||'').toLowerCase().includes(search)||(i.fields.Title||'').toLowerCase().includes(search));
     if(!items.length){loading(false);alert('내보낼 데이터가 없습니다.');return;}
-    const headers = ['번호','신청자','제목','유형','우선순위','상태','신청일'];
-    const rows = [headers, ...items.map(i=>{const f=i.fields;return[i.id,f.RequesterEmail||'',f.Title||'',f.TicketType||'',f.Priority||'',f.Status||'',f.RequestDate?f.RequestDate.slice(0,10):''];})];
+
+    // 결재자 정보 병합 (IT_Approvals)
+    let apprMap = {};
+    try {
+      const apprData = await api('/sites/'+siteId+'/lists/IT_Approvals/items?$expand=fields&$top=2000');
+      (apprData.value||[]).forEach(a=>{
+        const f = a.fields;
+        const rid = f.RequestID;
+        if(!apprMap[rid]) apprMap[rid] = [];
+        apprMap[rid].push({ role: f.ApproverRole||'', name: f.ApproverName||'', status: f.Status||'' });
+      });
+    } catch(e){}
+
+    const headers = [
+      '번호', '티켓 ID', '유형', '우선순위', '제목',
+      '신청자 이메일', '신청 부서', '대상 시스템',
+      '상세 내용', '상태',
+      '1차 결재자', '1차 상태',
+      '2차 결재자(IT)', '2차 상태',
+      '신청일', '최종 처리일'
+    ];
+
+    const rows = [headers, ...items.map(i=>{
+      const f = i.fields;
+      const apprList = apprMap[i.id] || [];
+      const a1 = apprList.find(a=>a.role&&a.role.includes('Line Manager'))||apprList[0]||{};
+      const a2 = apprList.find(a=>a.role&&(a.role.includes('IT')||a.role.includes('담당')))||apprList[1]||{};
+
+      // 대상 시스템 파싱 (Systems 필드)
+      const systems = (f.Systems||'').replace(/;/g,', ');
+
+      return [
+        i.id,
+        f.Title||'',
+        f.TicketType||'',
+        f.Priority||'',
+        f.Subject||f.Title||'',
+        f.RequesterEmail||'',
+        f.Department||'',
+        systems||f.OtherSystem||'',
+        (f.Description||'').replace(/<[^>]+>/g,'').slice(0,200),
+        f.Status||'',
+        a1.name||'',
+        a1.status||'',
+        a2.name||'',
+        a2.status||'',
+        f.RequestDate?f.RequestDate.slice(0,10):'',
+        f.Modified?f.Modified.slice(0,10):''
+      ];
+    })];
+
     const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // 컬럼 너비 설정
+    ws['!cols'] = [
+      {wch:8},{wch:28},{wch:14},{wch:10},{wch:36},
+      {wch:28},{wch:16},{wch:28},
+      {wch:40},{wch:12},
+      {wch:16},{wch:10},
+      {wch:16},{wch:10},
+      {wch:12},{wch:12}
+    ];
+
+    // 헤더 행 스타일
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for(let C=range.s.c; C<=range.e.c; C++){
+      const addr = XLSX.utils.encode_cell({r:0, c:C});
+      if(!ws[addr]) continue;
+      ws[addr].s = {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '1F3864' } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+      };
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'IT Tickets');
     XLSX.writeFile(wb, 'ITTicket_Admin_'+new Date().toISOString().slice(0,10)+'.xlsx');
