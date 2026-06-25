@@ -1458,13 +1458,16 @@ async function exportITAdminExcel(){
   loading(true,'Excel 생성 중...');
   try{
     const data = await api('/sites/'+siteId+'/lists/IT_Requests/items?$expand=fields&$top=500');
-    const status = (document.getElementById('admin-filter-status')||{value:''}).value;
-    const type = (document.getElementById('admin-filter-type')||{value:''}).value;
-    const search = ((document.getElementById('admin-filter-search')||{value:''}).value||'').toLowerCase();
+    const filterStatus = (document.getElementById('admin-filter-status')||{value:''}).value;
+    const filterType   = (document.getElementById('admin-filter-type')||{value:''}).value;
+    const filterSearch = ((document.getElementById('admin-filter-search')||{value:''}).value||'').toLowerCase();
     let items = (data.value||[]).sort((a,b)=>b.id-a.id);
-    if(status) items = items.filter(i=>i.fields.Status===status);
-    if(type) items = items.filter(i=>i.fields.TicketType===type);
-    if(search) items = items.filter(i=>(i.fields.RequesterEmail||'').toLowerCase().includes(search)||(i.fields.Title||'').toLowerCase().includes(search));
+    if(filterStatus) items = items.filter(i=>i.fields.Status===filterStatus);
+    if(filterType)   items = items.filter(i=>i.fields.TicketType===filterType);
+    if(filterSearch) items = items.filter(i=>
+      (i.fields.RequesterEmail||'').toLowerCase().includes(filterSearch)||
+      (i.fields.Title||'').toLowerCase().includes(filterSearch)
+    );
     if(!items.length){loading(false);alert('내보낼 데이터가 없습니다.');return;}
 
     // 결재자 정보 병합
@@ -1472,40 +1475,75 @@ async function exportITAdminExcel(){
     try{
       const apprData = await api('/sites/'+siteId+'/lists/IT_Approvals/items?$expand=fields&$top=2000');
       (apprData.value||[]).forEach(a=>{
-        const f=a.fields, rid=f.RequestID;
+        const f=a.fields, rid=String(f.RequestID);
         if(!apprMap[rid]) apprMap[rid]=[];
-        apprMap[rid].push({role:f.ApproverRole||'',name:f.ApproverName||'',status:f.Status||''});
+        apprMap[rid].push({order:f.ApprovalOrder||99,role:f.ApproverRole||'',name:f.ApproverName||'',email:f.ApproverEmail||'',status:f.Status||''});
       });
+      Object.keys(apprMap).forEach(k=>apprMap[k].sort((a,b)=>a.order-b.order));
     }catch(e){}
 
+    const txt = v => (v||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+
     const headers = [
-      '번호','티켓 ID','유형','우선순위','제목',
-      '신청자 이메일','대상 시스템','상세 내용','상태',
-      '1차 결재자','1차 상태','2차 결재자(IT)','2차 상태',
+      '번호','티켓 ID','유형','티켓 종류','우선순위','상태',
+      '신청자 이메일','대상 시스템','기타 시스템',
+      // Change 전용
+      '상세 내용(Change/Request)','변경 종류','영향 범위','변경 사유','요청 유형','계정 목적','환경','적용 시작일','적용 종료일',
+      // Incident 전용
+      '증상 설명','발생 일시','영향 범위(Incident)','임시 해결책',
+      // 결재
+      '1차 결재자','1차 이메일','1차 상태',
+      'IT 담당자','IT 이메일','IT 상태',
       '신청일','최종 수정일'
     ];
 
     const rows = [headers, ...items.map(i=>{
-      const f=i.fields;
-      const al=apprMap[i.id]||[];
-      const a1=al.find(a=>a.role&&a.role.includes('Line'))||al[0]||{};
-      const a2=al.find(a=>a.role&&(a.role.includes('IT')||a.role.includes('담당')))||al[1]||{};
-      const sys=(f.Systems||'').replace(/;/g,', ')||(f.OtherSystem||'');
-      const desc=(f.Description||'').replace(/<[^>]+>/g,'').slice(0,200);
-      return[
-        i.id, f.Title||'', f.TicketType||'', f.Priority||'', f.Subject||f.Title||'',
-        f.RequesterEmail||'', sys, desc, f.Status||'',
-        a1.name||'', a1.status||'', a2.name||'', a2.status||'',
+      const f = i.fields;
+      const al = apprMap[String(i.id)] || [];
+      const a1 = al.find(a=>a.role&&(a.role.includes('Line')||a.order===1)) || al[0] || {};
+      const a2 = al.find(a=>a.role&&(a.role.includes('IT')||a.role.includes('담당'))) || al[1] || {};
+      const sys = (f.Systems||'').split(';').filter(Boolean).join(', ');
+      return [
+        i.id,
+        f.Title||'',
+        f.TicketType||'',
+        f.ChangeType||f.ReqType||'',
+        f.Priority||'',
+        f.Status||'',
+        f.RequesterEmail||'',
+        sys,
+        f.OtherSystem||'',
+        // Change/Request 상세
+        txt(f.Detail||''),
+        f.ChangeType||'',
+        txt(f.Impact||''),
+        txt(f.ChangeReason||''),
+        f.ReqType||'',
+        f.AcctPurpose||'',
+        f.ReqEnv||'',
+        f.ReqFrom?f.ReqFrom.slice(0,10):'',
+        f.ReqTo?f.ReqTo.slice(0,10):'',
+        // Incident 상세
+        txt(f.Symptom||''),
+        f.IncOccurredAt?f.IncOccurredAt.slice(0,16).replace('T',' '):'',
+        txt(f.Scope||''),
+        txt(f.Workaround||''),
+        // 결재
+        a1.name||'', a1.email||'', a1.status||'',
+        a2.name||'', a2.email||'', a2.status||'',
         f.RequestDate?f.RequestDate.slice(0,10):'',
         f.Modified?f.Modified.slice(0,10):''
       ];
     })];
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[
-      {wch:7},{wch:28},{wch:14},{wch:10},{wch:36},
-      {wch:28},{wch:28},{wch:40},{wch:12},
-      {wch:16},{wch:10},{wch:16},{wch:10},
+    ws['!cols'] = [
+      {wch:6},{wch:26},{wch:12},{wch:14},{wch:10},{wch:10},
+      {wch:28},{wch:30},{wch:18},
+      {wch:40},{wch:12},{wch:18},{wch:24},{wch:12},{wch:16},{wch:10},{wch:12},{wch:12},
+      {wch:40},{wch:16},{wch:18},{wch:24},
+      {wch:16},{wch:28},{wch:10},
+      {wch:16},{wch:28},{wch:10},
       {wch:12},{wch:12}
     ];
     const wb = XLSX.utils.book_new();
