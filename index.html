@@ -439,6 +439,11 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         <a href="https://ehyosung.sharepoint.com.mcas.ms/sites/STK-NAS/SitePages/STK-Policies-Guide.aspx" target="_blank" style="color:#0078d4;font-weight:600;text-decoration:underline">STK-NAS → STK-RPA → STK Policies &amp; Guidelines → ITS → Infrastructure → Templates</a><br>
         <span style="color:#605e5c;font-size:.75rem">위 링크 접속 후 <b>Autofocus-System-Permission_Request_Form</b> 관련 파일을 다운로드하여 작성 후 첨부해주세요.</span>
       </div>
+      <div id="chg-watermark-notice" style="display:none;margin-top:10px;background:#fff8f0;border:1px solid #f3d0a6;border-radius:6px;padding:9px 14px;font-size:.78rem;color:#323130;line-height:1.8">
+        📎 <b>STK Watermark 신청용 파일 다운로드</b><br>
+        <a href="https://startruckkorea.sharepoint.com/sites/STK-DB/Shared%20Documents/STK-Watermark.pdf" target="_blank" style="color:#0078d4;font-weight:600;text-decoration:underline">STK-Watermark.pdf 다운로드</a><br>
+        <span style="color:#605e5c;font-size:.75rem">위 링크에서 파일을 다운로드하여 첨부해주세요.</span>
+      </div>
       <div class="form-row full" style="margin-top:12px">
         <div class="form-group">
           <label>기타 시스템</label>
@@ -739,7 +744,7 @@ const IT_MANAGER = { name: 'IT Support', email: '' };
 const SYSTEMS = [
   'STK APS', 'STK WMC', 'STK RAS', 'STK KR-Intranet', 'SharePoint', 'STK Intra CV',
   'STK SAP-Be1', 'STK WINCMS', 'STK Autofocus DMS', 'STK Autofocus CRM', 'STK VPN', 'Hyosung M365', 'Hyosung GUMS',
-  'Hyosung Viva Engage', 'CoD', '기타'
+  'Hyosung Viva Engage', 'CoD', 'STK Watermark', '기타'
 ];
 
 const PRIORITY_COLORS = { Low:'#107c10', Medium:'#7d5700', High:'#a4262c', Critical:'#fff' };
@@ -901,7 +906,7 @@ function initSysGrid(gridId) {
 function syncNoticeBoxes() {
   if (_activeTab !== 'change') {
     // Change탭 아닐 때는 모두 숨김
-    ['chg-cod-notice','chg-vpn-notice','chg-afs-notice',
+    ['chg-cod-notice','chg-vpn-notice','chg-afs-notice','chg-watermark-notice',
      'chg-cod-attach','chg-vpn-attach','chg-afs-attach'].forEach(id => {
       const b = document.getElementById(id); if(b) b.style.display='none';
     });
@@ -914,6 +919,7 @@ function syncNoticeBoxes() {
   const map = {
     'CoD':               ['chg-cod-notice','chg-cod-attach'],
     'STK VPN':           ['chg-vpn-notice','chg-vpn-attach'],
+    'STK Watermark':     ['chg-watermark-notice'],
   };
   Object.entries(map).forEach(([val,ids]) => {
     ids.forEach(id => {
@@ -937,6 +943,7 @@ function onSysCheck(cb) {
   const notices = {
     'CoD':     ['chg-cod-notice', 'chg-cod-attach'],
     'STK VPN': ['chg-vpn-notice', 'chg-vpn-attach'],
+    'STK Watermark': ['chg-watermark-notice'],
   };
   (notices[cb.value] || []).forEach(id => {
     const box = document.getElementById(id);
@@ -1091,7 +1098,7 @@ function resetForm(prefix) {
     document.getElementById('chg-priority').style.background = '';
     document.getElementById('chg-req-from').value = '';
     document.getElementById('chg-req-to').value = '';
-    document.querySelectorAll('#chg-sys-grid input').forEach(cb => { cb.checked = false; cb.parentElement.classList.remove('checked'); }); ['cr-cod-notice','cr-vpn-notice'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='none';});
+    document.querySelectorAll('#chg-sys-grid input').forEach(cb => { cb.checked = false; cb.parentElement.classList.remove('checked'); }); ['chg-cod-notice','chg-vpn-notice','chg-afs-notice','chg-watermark-notice'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='none';});
     chgFiles = []; renderFiles('chg');
     ['chg-a1-name','chg-a1-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     ['chg-a1-dept','chg-a1-team','chg-a1-person'].forEach(id => { const el = document.getElementById(id); if(el) { el.selectedIndex = 0; el.disabled = id !== 'chg-a1-dept'; } });
@@ -1274,7 +1281,7 @@ function switchTab(name) {
   _activeTab = name;
   // 탭 전환 시 체크박스 상태 기반으로 박스 재동기화
   setTimeout(syncNoticeBoxes, 50);
-  ['chg-cod-notice','chg-vpn-notice','cr-cod-notice','cr-vpn-notice'].forEach(id => {
+  ['chg-cod-notice','chg-vpn-notice','chg-afs-notice','chg-watermark-notice'].forEach(id => {
     const b = document.getElementById(id); if(b) b.style.display='none';
   });
   if (name === 'admin') {
