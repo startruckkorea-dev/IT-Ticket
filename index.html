@@ -441,7 +441,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       </div>
       <div id="chg-watermark-notice" style="display:none;margin-top:10px;background:#fff8f0;border:1px solid #f3d0a6;border-radius:6px;padding:9px 14px;font-size:.78rem;color:#323130;line-height:1.8">
         📎 <b>STK Watermark 신청용 파일 다운로드</b><br>
-        <a href="https://startruckkorea.sharepoint.com/sites/STK-DB/_layouts/15/download.aspx?SourceUrl=%2Fsites%2FSTK-DB%2FShared%20Documents%2FSTK-Watermark.pdf" style="color:#0078d4;font-weight:600;text-decoration:underline">STK-Watermark.pdf 다운로드</a><br>
+        <a href="#" onclick="downloadWatermarkTemplate();return false;" style="color:#0078d4;font-weight:600;text-decoration:underline;cursor:pointer">⬇ STK-Watermark.pdf 다운로드</a><br>
         <span style="color:#605e5c;font-size:.75rem">위 링크에서 파일을 다운로드하여 첨부해주세요.</span>
       </div>
       <div class="form-row full" style="margin-top:12px">
@@ -796,6 +796,38 @@ async function api(path, method='GET', body=null) {
   const res = await fetch(GRAPH + path, opts);
   if (!res.ok) throw new Error((await res.json())?.error?.message || res.status);
   return res.status === 204 ? null : res.json();
+}
+
+// ── STK Watermark 템플릿 다운로드 — STK Mobility Car(rrDownloadTemplate)와 동일한 방식.
+// 링크 href는 "#"로 두고 JS로만 처리하기 때문에 실제 SharePoint 문서 경로가 주소창/링크에 절대 노출되지 않는다.
+// Graph API의 @microsoft.graph.downloadUrl(짧은 시간만 유효한 서명된 다운로드 전용 URL)을 받아서
+// 화면에 보이지 않는 임시 <a download> 태그로 클릭 후 바로 제거하는 방식으로 다운로드만 트리거한다.
+async function downloadWatermarkTemplate(){
+  try{
+    const drivesData = await api('/sites/'+siteId+'/drives');
+    const docDrive = (drivesData.value||[]).find(d=>['Documents','문서','Shared Documents'].includes(d.name)) || drivesData.value.find(d=>d.driveType==='documentLibrary') || drivesData.value[0];
+    const t = await token();
+    const fileName = 'STK-Watermark.pdf';
+    const encodedName = encodeURIComponent(fileName);
+    const res = await fetch(GRAPH+'/drives/'+docDrive.id+'/root:/'+encodedName+'?select=id,name,@microsoft.graph.downloadUrl',
+      {headers:{Authorization:'Bearer '+t}});
+    if(!res.ok) throw new Error('Access denied - 파일 권한을 확인해주세요. ('+res.status+')');
+    const data = await res.json();
+    const dlUrl = data['@microsoft.graph.downloadUrl'];
+    if(dlUrl){
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      throw new Error('다운로드 URL을 가져올 수 없습니다.');
+    }
+  }catch(e){
+    alert('다운로드 오류: '+e.message);
+  }
 }
 
 // ── Boot ──
