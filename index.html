@@ -781,6 +781,8 @@ async function token() {
 
 // ── 페이지네이션 전체 조회 헬퍼 (기존 .value 접근 호환) ──
 async function apiAll(path) {
+  // SharePoint 기본 페이지 크기(200건)보다 크게 요청해서 왕복 횟수를 줄임 (데이터 누락 없이 전량은 그대로 다 읽음)
+  if (!/[?&]\$top=/.test(path)) path += (path.includes('?') ? '&' : '?') + '$top=999';
   let items = [], url = path;
   while(url) {
     const d = await api(url);
@@ -1370,7 +1372,7 @@ async function loadMyList() {
   const tbody = document.getElementById('list-body');
   dynLoadStart('티켓 데이터 불러오는 중');
   try {
-    const data = await api('/sites/' + siteId + '/lists/IT_Requests/items?$expand=fields&$top=500');
+    const data = await apiAll('/sites/' + siteId + '/lists/IT_Requests/items?$expand=fields&$top=500');
     const mine = data.value
       .filter(i => (i.fields.RequesterEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase())
       .sort((a,b) => new Date(b.fields.RequestDate) - new Date(a.fields.RequestDate));
@@ -1387,7 +1389,7 @@ async function loadApprovalQueue() {
   try {
     const [apprData, reqData] = await Promise.all([
       apiAll('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields'),
-      api('/sites/' + siteId + '/lists/IT_Requests/items?$expand=fields&$top=500')
+      apiAll('/sites/' + siteId + '/lists/IT_Requests/items?$expand=fields&$top=500')
     ]);
     const reqMap = {};
     reqData.value.forEach(function(r){ reqMap[r.id] = r.fields; });
@@ -1496,7 +1498,7 @@ async function processApproval(apprId, action, reqId, comment='') {
 async function exportITAdminExcel(){
   loading(true,'Excel 생성 중...');
   try{
-    const data = await api('/sites/'+siteId+'/lists/IT_Requests/items?$expand=fields&$top=500');
+    const data = await apiAll('/sites/'+siteId+'/lists/IT_Requests/items?$expand=fields&$top=500');
     const filterStatus = (document.getElementById('admin-filter-status')||{value:''}).value;
     const filterType   = (document.getElementById('admin-filter-type')||{value:''}).value;
     const filterSearch = ((document.getElementById('admin-filter-search')||{value:''}).value||'').toLowerCase();
@@ -1512,7 +1514,7 @@ async function exportITAdminExcel(){
     // 결재자 정보 병합
     let apprMap = {};
     try{
-      const apprData = await api('/sites/'+siteId+'/lists/IT_Approvals/items?$expand=fields&$top=2000');
+      const apprData = await apiAll('/sites/'+siteId+'/lists/IT_Approvals/items?$expand=fields&$top=2000');
       (apprData.value||[]).forEach(a=>{
         const f=a.fields, rid=String(f.RequestID);
         if(!apprMap[rid]) apprMap[rid]=[];
@@ -1579,7 +1581,7 @@ async function loadAdminList() {
   dynLoadStart('티켓 데이터 불러오는 중');
   try {
     if (!allRequestsCache.length) {
-      const data = await api('/sites/' + siteId + '/lists/IT_Requests/items?$expand=fields&$top=500');
+      const data = await apiAll('/sites/' + siteId + '/lists/IT_Requests/items?$expand=fields&$top=500');
       allRequestsCache = data.value.sort((a,b) => new Date(b.fields.RequestDate) - new Date(a.fields.RequestDate));
     }
     let items = allRequestsCache;
@@ -2106,7 +2108,7 @@ async function loadUnifiedBadge() {
   let total = 0;
   await Promise.all(_UNIFIED_SYSTEMS.map(async sys => {
     try {
-      const data = await api('/sites/'+siteId+'/lists/'+sys.list+'/items?$expand=fields&$top=500');
+      const data = await apiAll('/sites/'+siteId+'/lists/'+sys.list+'/items?$expand=fields&$top=500');
       total += data.value.filter(i => (i.fields.ApproverEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase() && (i.fields.Status||'').trim() === '대기').length;
     } catch(e) {}
   }));
@@ -2134,8 +2136,8 @@ async function loadUnifiedData() {
   const results = await Promise.all(_UNIFIED_SYSTEMS.map(async sys => {
     try {
       const [apprData, reqData] = await Promise.all([
-        api('/sites/'+siteId+'/lists/'+sys.list+'/items?$expand=fields&$top=500'),
-        api('/sites/'+siteId+'/lists/'+sys.reqList+'/items?$expand=fields&$top=500'),
+        apiAll('/sites/'+siteId+'/lists/'+sys.list+'/items?$expand=fields&$top=500'),
+        apiAll('/sites/'+siteId+'/lists/'+sys.reqList+'/items?$expand=fields&$top=500'),
       ]);
       const reqMap = {};
       reqData.value.forEach(r => { reqMap[r.id] = r.fields; });
@@ -2251,7 +2253,7 @@ async function uniConfirmApproval() {
     if (action === '반려') {
       await api('/sites/'+siteId+'/lists/'+lists.req+'/items/'+reqId, 'PATCH', {fields:{Status:'반려'}});
     } else {
-      const all = await api('/sites/'+siteId+'/lists/'+lists.apr+'/items?$expand=fields&$top=500');
+      const all = await apiAll('/sites/'+siteId+'/lists/'+lists.apr+'/items?$expand=fields&$top=500');
       const next = all.value.filter(i => Number(i.fields.RequestID)===Number(reqId) && (i.fields.Status||'').trim()==='대기(잠김)')
                             .sort((a,b) => a.fields.ApprovalOrder - b.fields.ApprovalOrder);
       if (next.length) await api('/sites/'+siteId+'/lists/'+lists.apr+'/items/'+next[0].id, 'PATCH', {fields:{Status:'대기'}});
