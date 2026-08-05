@@ -1277,7 +1277,7 @@ async function submitTicket(prefix) {
     };
     const item = await api('/sites/' + siteId + '/lists/IT_Requests/items', 'POST', { fields: coreFields });
     const reqId = item.id;
-    await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Title: prefix2 + '-' + dateStr + '_ID-' + reqId } });
+    await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Title: prefix2 + '-' + dateStr + '_ID-' + reqId + ' : ' + title } });
 
     // Step 1-b: 여러 줄 텍스트 필드 별도 PATCH (Systems, 사용자 입력 제목)
     try {
