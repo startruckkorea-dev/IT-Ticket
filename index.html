@@ -1741,8 +1741,8 @@ async function showDetail(requestId) {
 
     const statusColor = f.Status === '승인완료' ? '#107c10' : f.Status === '반려' ? '#a4262c' : f.Status === '처리중' ? '#0078d4' : '#7d5700';
     let html = sec('기본 정보') +
-      row('제목', f.TicketTitle || f.Title) +
-      (f.TicketTitle ? row('신청번호', f.Title) : '') +
+      row('제목', f.Title) +
+      (f.TicketTitle ? row('요청 제목', f.TicketTitle) : '') +
       row('신청자', f.RequesterEmail) +
       row('유형', typeBadge(f.TicketType)) +
       row('우선순위', priorityBadge(f.Priority)) +
