@@ -1359,7 +1359,7 @@ async function submitTicket(prefix) {
 
     for (const a of approvers) {
       await api('/sites/' + siteId + '/lists/IT_Approvals/items', 'POST', { fields: {
-        Title: 'IT-' + new Date().toISOString().slice(0,10) + '_ID-' + reqId + '-' + a.order,
+        Title: 'IT-' + new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10) + '_ID-' + reqId + '-' + a.order,
         RequestID: parseInt(reqId),
         ApproverEmail: a.email,
         ApproverName: a.name,
@@ -1369,7 +1369,7 @@ async function submitTicket(prefix) {
       }});
     }
 
-    showAlert('티켓이 등록되었습니다.', 'IT-'+new Date().toISOString().slice(0,10)+'_ID-'+reqId);
+    showAlert('티켓이 등록되었습니다.', 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId);
     resetForm(prefix);
     switchTab('list');
   } catch(e) { showAlert('오류가 발생했습니다.', e.message, '⚠️'); }
@@ -1635,7 +1635,7 @@ async function exportITAdminExcel(){
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'IT Tickets');
-    XLSX.writeFile(wb, 'ITTicket_Admin_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    XLSX.writeFile(wb, 'ITTicket_Admin_'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'.xlsx');
   }catch(e){alert('Excel 생성 실패: '+e.message);}
   finally{loading(false);}
 }
@@ -1953,7 +1953,7 @@ async function exportTicketPdf() {
     const finalBlob = new Blob([finalBytes], {type:'application/pdf'});
     const f = window._currentTicketFields;
     const reqEmail = (f?.RequesterEmail || 'unknown').replace(/[^a-z0-9]/gi, '_');
-    const fileName = 'ITSM_' + (window._currentTicketId || 'ticket') + '_' + reqEmail + '_' + now.toISOString().substring(0, 10) + '.pdf';
+    const fileName = 'ITSM_' + (window._currentTicketId || 'ticket') + '_' + reqEmail + '_' + new Date(now.getTime()+9*3600*1000).toISOString().substring(0, 10) + '.pdf';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(finalBlob);
     a.download = fileName;
