@@ -1773,21 +1773,21 @@ async function showDetail(requestId) {
     const t = f.TicketType;
     if (t === 'Incident' || t === 'Problem') {
       html += sec('장애/이슈 상세') +
-        (f.TicketTitle ? row('제목', f.TicketTitle) : '') +
+        (f.TicketTitle ? row('요청 제목', f.TicketTitle) : '') +
         row('발생 일시', f.IncOccurredAt) +
         row('증상 설명', linkifyTicketRefs(f.Symptom), true) +
         row('영향 범위', f.Scope) +
         row('임시 해결책', f.Workaround);
     } else if (t === 'Change') {
       html += sec('변경 요청 상세') +
-        (f.TicketTitle ? row('제목', f.TicketTitle) : '') +
+        (f.TicketTitle ? row('요청 제목', f.TicketTitle) : '') +
         row('변경 유형', f.ChangeType) +
         row('예상 영향도', f.Impact) +
         row('변경 내용', linkifyTicketRefs(f.Detail), true) +
         row('변경 이유', f.ChangeReason, true);
     } else if (t === 'Request') {
       html += sec('서비스 요청 상세') +
-        (f.TicketTitle ? row('제목', f.TicketTitle) : '') +
+        (f.TicketTitle ? row('요청 제목', f.TicketTitle) : '') +
         row('요청 유형', f.ReqType) +
         row('계정 생성 목적', f.AcctPurpose) +
         row('권한 환경', f.ReqEnv) +
