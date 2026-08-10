@@ -391,7 +391,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="section-title red">5. 첨부파일</div>
       <div class="file-area" onclick="document.getElementById('inc-file-input').click()">
         <input type="file" id="inc-file-input" multiple onchange="onFileSelect(event,'inc')">
-        <div class="hint">📎 클릭하여 파일 첨부 (스크린샷, 로그 등 / 최대 10MB)</div>
+        <div class="hint">📎 클릭하여 파일 첨부 (스크린샷, 로그 등 / 최대 20MB)</div>
         <div id="cr-cod-notice" style="display:none;margin-top:8px;background:#fff4ed;border-left:3px solid #f3a86a;border-radius:4px;padding:7px 12px;font-size:.75rem;color:#7d3c00">
           ⚠️ CoD 신규 신청 or 교체 시 반드시 <b>CoD_Request_Form</b> 작성 완료 파일을 첨부해주세요.
         </div>
@@ -603,7 +603,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="section-title orange">5. 첨부파일</div>
       <div class="file-area" onclick="document.getElementById('chg-file-input').click()">
         <input type="file" id="chg-file-input" multiple onchange="onFileSelect(event,'chg')">
-        <div class="hint">📎 클릭하여 파일 첨부 (최대 10MB)</div>
+        <div class="hint">📎 클릭하여 파일 첨부 (최대 20MB)</div>
                 
         
       </div>
@@ -1184,7 +1184,9 @@ function onFileSelect(e, prefix) {
   const newFiles = Array.from(e.target.files);
   for (const f of newFiles) { if (!store.find(x => x.name === f.name)) store.push(f); }
   const totalMB = store.reduce((s,f) => s+f.size, 0) / 1024 / 1024;
-  if (totalMB > 10) { alert('첨부파일 총 용량이 ' + totalMB.toFixed(1) + 'MB입니다.'); store.length = 0; }
+  // 2026-08-10: 첨부 총 용량 제한 10MB → 20MB (SSC와 동일 기준)
+  // 업로드는 Graph 단순 업로드(PUT :/content) 방식이며 한도가 250MB이므로 20MB는 문제없음
+  if (totalMB > 20) { alert('첨부파일 총 용량이 ' + totalMB.toFixed(1) + 'MB입니다. 20MB 이하로 첨부해주세요.'); store.length = 0; }
   renderFiles(prefix);
   document.getElementById(prefix + '-file-input').value = '';
 }
