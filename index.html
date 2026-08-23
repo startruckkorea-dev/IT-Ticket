@@ -1007,11 +1007,6 @@ async function boot(account) {
 }
 
 // ── 관리자 여부 체크 (대소문자 무시) ──
-function isAdmin() {
-  if (!user) return false;
-  const email = (user.email || user.username || '').toLowerCase();
-  return ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
-}
 
 // ── System checkbox grid ──
 function initSysGrid(gridId) {
@@ -2209,15 +2204,6 @@ async function loadUnifiedBadge() {
   if(badge) { badge.textContent = total; badge.style.display = total > 0 ? 'inline-block' : 'none'; }
 }
 
-async function openUnifiedAppr() {
-  document.getElementById('unified-modal').classList.add('open');
-  document.getElementById('unified-body').innerHTML = '';
-  await loadUnifiedData();
-}
-function closeUnifiedAppr() {
-  document.getElementById('unified-modal').classList.remove('open');
-  closeUniDetail();
-}
 
 async function loadUnifiedData() {
   if (!siteId || !user) return;
