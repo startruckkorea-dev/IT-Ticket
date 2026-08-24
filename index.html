@@ -246,23 +246,6 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 .badge-진행중{background:#dbeafe;color:#1d4ed8;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
 .badge-처리중{background:#dbeafe;color:#1d4ed8;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
 .badge-철회{background:#f1f5f9;color:#64748b;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
-.link-ticket-btn{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;color:#0078d4;background:#eff6ff;border:1px solid #cfe4fc;border-radius:6px;padding:4px 10px;cursor:pointer;margin-top:6px;font-family:inherit}
-.link-ticket-btn:hover{background:#e0eefe}
-#link-ticket-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center}
-#link-ticket-modal.open{display:flex}
-.lt-card{background:#fff;border-radius:12px;padding:22px 24px;width:520px;max-width:92vw;max-height:78vh;display:flex;flex-direction:column}
-.lt-tabs{display:flex;gap:6px;margin-bottom:12px}
-.lt-tab{flex:1;text-align:center;padding:7px 0;border-radius:7px;font-size:.78rem;font-weight:600;cursor:pointer;background:#f1f5f9;color:#64748b}
-.lt-tab.active{background:#0078d4;color:#fff}
-.lt-search-row{display:flex;gap:6px;margin-bottom:10px}
-.lt-search-row input{flex:1;padding:8px 10px;border:1px solid #d0d7de;border-radius:7px;font-size:.8rem;font-family:inherit}
-.lt-results{overflow-y:auto;flex:1;border:1px solid #eef1f5;border-radius:8px}
-.lt-result-row{padding:9px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:.78rem}
-.lt-result-row:hover{background:#f0f6ff}
-.lt-result-row:last-child{border-bottom:none}
-.lt-result-title{font-weight:600;color:#0078d4}
-.lt-result-meta{color:#8a94a6;font-size:.7rem;margin-top:2px}
-.lt-empty{padding:20px;text-align:center;color:#94a3b8;font-size:.78rem}
 .ref-link{color:#0078d4;font-weight:600;text-decoration:underline;cursor:pointer}
 </style>
 </head>
@@ -354,7 +337,6 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
         <div class="form-group">
           <label>증상 설명 <span class="req">*</span></label>
           <textarea id="inc-symptom" placeholder="어떤 증상이 발생했나요? 오류 메시지, 화면 등 최대한 상세히 기재해주세요." style="min-height:100px"></textarea>
-          <button type="button" class="link-ticket-btn" onclick="openLinkTicketModal('inc-symptom')">🔗 관련 티켓 링크 추가</button>
         </div>
       </div>
       <div class="form-row">
@@ -502,7 +484,6 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
           <div class="form-group">
             <label>변경 내용 상세 <span class="req">*</span></label>
             <textarea id="chg-change-detail" placeholder="어떤 변경을 원하시나요? 현재 상태 → 변경 후 원하는 상태를 구체적으로 기재해주세요." style="min-height:100px"></textarea>
-            <button type="button" class="link-ticket-btn" onclick="openLinkTicketModal('chg-change-detail')">🔗 관련 티켓 링크 추가</button>
           </div>
         </div>
         <div class="form-row full">
@@ -564,7 +545,6 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
           <div class="form-group">
             <label>요청 상세 내용 <span class="req">*</span></label>
             <textarea id="chg-req-detail" placeholder="요청 내용을 구체적으로 기재해주세요. (예: 신규 입사자 홍길동 사원 STK SharePoint 계정 생성 요청)" style="min-height:100px"></textarea>
-            <button type="button" class="link-ticket-btn" onclick="openLinkTicketModal('chg-req-detail')">🔗 관련 티켓 링크 추가</button>
           </div>
         </div>
       </div>
@@ -2388,80 +2368,6 @@ const LT_SYS = {
   BP:  { domain: 'https://bp-master.startruckkorea.com/',   list: 'BP_Requests',  prefix: 'BP'  },
   ACC: { domain: 'https://acc-voucher.startruckkorea.com/', list: null,           prefix: 'ACC' }, // ACC는 '세대(Volume)' 구조라 리스트ID를 매번 동적으로 확보
 };
-let ltCurrentSys = 'FA';
-let ltTargetTextareaId = null;
-let _accVolListId = null; // ACC Voucher의 현재 활성 세대(Volume) 리스트ID 캐시
-
-function openLinkTicketModal(textareaId) {
-  ltTargetTextareaId = textareaId;
-  document.getElementById('link-ticket-modal').classList.add('open');
-  document.getElementById('lt-search-input').value = '';
-  document.getElementById('lt-results').innerHTML = '<div class="lt-empty">시스템을 고르고 검색어를 입력해주세요</div>';
-}
-function closeLinkTicketModal() {
-  document.getElementById('link-ticket-modal').classList.remove('open');
-}
-function ltSwitchSys(sys) {
-  ltCurrentSys = sys;
-  document.querySelectorAll('.lt-tab').forEach(t => t.classList.toggle('active', t.dataset.sys === sys));
-  document.getElementById('lt-results').innerHTML = '<div class="lt-empty">검색어를 입력하고 검색 버튼을 눌러주세요</div>';
-}
-// ACC Voucher의 현재 활성 세대(Volume) 리스트ID를 acc_voucher_volumes.json에서 확보 (ACC 자체 코드와 동일한 방식)
-async function ltGetAccListId() {
-  if (_accVolListId) return _accVolListId;
-  if (!siteId) { const s = await api('/sites/' + SITE_PATH); siteId = s.id; }
-  const drivesRes = await api('/sites/' + siteId + '/drives');
-  const docDrive = (drivesRes.value || []).find(d => ['Documents', '문서', 'Shared Documents'].includes(d.name)) || (drivesRes.value || [])[0];
-  const t = await token();
-  const res = await fetch(GRAPH + '/drives/' + docDrive.id + '/root:/acc_voucher_volumes.json:/content', { headers: { Authorization: 'Bearer ' + t } });
-  if (res.ok) {
-    const cfg = await res.json();
-    _accVolListId = cfg.reqList;
-  } else {
-    _accVolListId = '060b5c19-b1ed-40a3-9dbd-fae9a6648a57'; // ACC 자체 코드의 DEFAULT_LIST_REQUESTS와 동일한 최초 기본값
-  }
-  return _accVolListId;
-}
-async function ltSearch() {
-  const kw = (document.getElementById('lt-search-input').value || '').trim().toLowerCase();
-  const resultsEl = document.getElementById('lt-results');
-  if (!kw) { resultsEl.innerHTML = '<div class="lt-empty">검색어를 입력해주세요</div>'; return; }
-  resultsEl.innerHTML = '<div class="lt-empty">검색 중...</div>';
-  try {
-    if (!siteId) { const s = await api('/sites/' + SITE_PATH); siteId = s.id; }
-    let listId = LT_SYS[ltCurrentSys].list;
-    if (ltCurrentSys === 'ACC') listId = await ltGetAccListId();
-    const data = await apiAll('/sites/' + siteId + '/lists/' + listId + '/items?$expand=fields&$top=500');
-    const items = (data.value || []).filter(it => {
-      const f = it.fields;
-      const title = (f.Title || '').toLowerCase();
-      const email = (f.RequesterEmail || '').toLowerCase();
-      return title.includes(kw) || email.includes(kw);
-    }).sort((a, b) => b.id - a.id).slice(0, 30);
-    if (!items.length) { resultsEl.innerHTML = '<div class="lt-empty">검색 결과가 없습니다</div>'; return; }
-    resultsEl.innerHTML = items.map(it => {
-      const f = it.fields;
-      return '<div class="lt-result-row" onclick="ltInsertRef(\'' + f.Title.replace(/'/g, "\\'") + '\')">'
-        + '<div class="lt-result-title">' + f.Title + '</div>'
-        + '<div class="lt-result-meta">' + (f.RequesterEmail || '') + (f.Status ? ' · ' + f.Status : '') + '</div>'
-        + '</div>';
-    }).join('');
-  } catch (e) {
-    resultsEl.innerHTML = '<div class="lt-empty">검색 실패: ' + e.message + '</div>';
-  }
-}
-function ltInsertRef(title) {
-  const ta = document.getElementById(ltTargetTextareaId);
-  if (ta) {
-    const marker = '[' + title + ']';
-    const start = ta.selectionStart ?? ta.value.length;
-    const end = ta.selectionEnd ?? ta.value.length;
-    ta.value = ta.value.slice(0, start) + marker + ta.value.slice(end);
-    ta.focus();
-    ta.selectionStart = ta.selectionEnd = start + marker.length;
-  }
-  closeLinkTicketModal();
-}
 // 상세보기에 표시되는 텍스트에서 [FA-...ID-n]/[BP-...ID-n]/[ACC-...ID-n] 패턴을 자동으로 클릭 가능한 링크로 변환
 function linkifyTicketRefs(text) {
   if (!text) return text;
@@ -2509,24 +2415,5 @@ function linkifyTicketRefs(text) {
 @keyframes noAuthIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 #no-auth-modal.show{display:flex!important}
 </style>
-<div id="link-ticket-modal">
-  <div class="lt-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-size:.95rem;font-weight:700;color:#101B34">🔗 관련 티켓 링크 추가</div>
-      <div style="cursor:pointer;color:#94a3b8;font-size:1.1rem" onclick="closeLinkTicketModal()">✕</div>
-    </div>
-    <div class="lt-tabs">
-      <div class="lt-tab active" data-sys="FA" onclick="ltSwitchSys('FA')">FA Registration</div>
-      <div class="lt-tab" data-sys="BP" onclick="ltSwitchSys('BP')">BP Master</div>
-      <div class="lt-tab" data-sys="ACC" onclick="ltSwitchSys('ACC')">ACC Voucher</div>
-    </div>
-    <div class="lt-search-row">
-      <input type="text" id="lt-search-input" placeholder="제목 또는 신청자 이메일로 검색" onkeydown="if(event.key==='Enter')ltSearch()">
-      <button type="button" onclick="ltSearch()" style="padding:8px 14px;background:#101B34;color:#fff;border:none;border-radius:7px;font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit">검색</button>
-    </div>
-    <div class="lt-results" id="lt-results"><div class="lt-empty">시스템을 고르고 검색어를 입력해주세요</div></div>
-  </div>
-</div>
-
 </body>
 </html>
