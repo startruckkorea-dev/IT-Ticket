@@ -711,6 +711,23 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 <div id="loading"><div class="loading-box"><div class="spinner"></div><span>처리 중입니다...</span></div></div>
 
 <script>
+
+// 결재 의견은 사용자가 직접 입력하는 자유 텍스트라 그대로 출력하면 저장형 XSS 가 된다.
+// SharePoint 다중 텍스트는 <div class="ExternalClass..."> 래퍼와 숫자 엔티티를 붙여 저장하므로
+// spText 로 걷어낸 뒤 escHtml 로 이스케이프한다. (mc 의 검증된 구현을 이식)
+function escHtml(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function spText(s){
+  return String(s==null?'':s)
+    .replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n').replace(/<[^>]*>/g,'')
+    .replace(/&nbsp;/gi,' ')
+    .replace(/&#(\d+);/g,function(m,d){var n=parseInt(d,10);return (n>=32&&n<=1114111)?String.fromCodePoint(n):m;})
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+    .replace(/&amp;/g,'&').replace(/\n{3,}/g,'\n\n').trim();
+}
+function safeText(s){ return escHtml(spText(s)); }
 const CLIENT_ID = '432976c2-b43a-492e-8213-ece505fa1f51';
 const TENANT_ID = '19cab1f5-21f4-44df-8ac6-96d6ca595203';
 const SITE_PATH = 'startruckkorea.sharepoint.com:/sites/STK-DB:';
@@ -1724,7 +1741,7 @@ async function showDetail(requestId) {
               '<div><div style="font-weight:600;font-size:13px;color:#323130">' + (()=>{const _r=af.ApproverRole||'',_o=String(af.ApprovalOrder||'');const _n=_r.startsWith(_o+'차')?_r.slice(_o.length+1).trim():_r;const _p=_n.replace(/^결재자\s*/,'');const _q=_p.startsWith('(')?_p:(_p?'('+_p+')':'');return '<b>'+_o+'차</b> 결재자'+_q;})() + '</div>' +
               '<div style="font-size:12px;color:#605e5c;margin-top:2px">' + (af.ApproverName||'') + ' · ' + (af.ApproverEmail||'') + '</div>' +
               (af.ApprovalDate ? '<div style="font-size:11px;color:#a19f9d;margin-top:2px">' + fmtDate(af.ApprovalDate) + '</div>' : '') +
-              (af.Comment ? '<div style="margin-top:4px;background:#fff;border:1px solid #edebe9;border-radius:4px;padding:4px 8px;font-size:12px;color:#605e5c">💬 ' + af.Comment + '</div>' : '') +
+              (af.Comment ? '<div style="margin-top:4px;background:#fff;border:1px solid #edebe9;border-radius:4px;padding:4px 8px;font-size:12px;color:#605e5c">💬 ' + safeText(af.Comment) + '</div>' : '') +
               '</div><span style="color:' + (_sc[af.Status]||'#323130') + ';font-weight:700;font-size:12px;white-space:nowrap;margin-left:8px">' + (af.Status||'') + '</span></div>';
           }).join('') + '</div>';
         // 내 결재 대기 건 버튼
