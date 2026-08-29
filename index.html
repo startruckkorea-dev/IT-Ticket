@@ -1605,13 +1605,40 @@ async function exportITAdminExcel(){
       Object.keys(apprMap).forEach(k=>apprMap[k].sort((a,b)=>a.order-b.order));
     }catch(e){}
 
-    const txt = v => (v||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+    // SharePoint 「여러 줄 텍스트」 컬럼은 값을 <div class="ExternalClass...">…</div> 로 감싸
+    // 돌려주고, 콜론·앰퍼샌드 등을 HTML 엔티티로 바꿔 저장한다.
+    // 상세보기 화면에서는 이미 되돌리고 있는데(&#58; → :) Excel 에서만 빠져 있어
+    // 「https&#58;//...」, 「<div class="ExternalClass...">SharePoint</div>」 처럼 나갔다.
+    // 태그를 지우기 전에 <br>·</div> 를 줄바꿈으로 바꿔야 여러 줄 내용이 한 줄로 붙지 않는다.
+    // &amp; 는 맨 마지막에 푼다. 먼저 풀면 &amp;lt; 가 < 로 이중 복원된다.
+    const txt = v => String(v == null ? '' : v)
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(div|p|li|tr)>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&#(\d+);/g, (m, d) => String.fromCharCode(Number(d)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (m, h) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    // 첨부는 「파일명||driveId||itemId」 를 ; 로 이어 붙여 한 칸에 저장한다(옛 형식은 파일명|URL).
+    // 개수와 파일명을 따로 뽑아 두 열로 내보낸다.
+    const attInfo = v => {
+      const s = txt(v || '');
+      if (!s) return { n: 0, names: '' };
+      const names = s.split(';').map(e => (e.split('|')[0] || '').trim()).filter(Boolean);
+      return { n: names.length, names: names.join(', ') };
+    };
 
     const headers = [
       '번호','티켓 ID','유형','티켓 종류','우선순위','상태',
       '신청자 이메일','대상 시스템','기타 시스템',
       '상세 내용(Change/Request)','변경 종류','영향 범위','변경 사유','요청 유형','계정 목적','환경','적용 시작일','적용 종료일',
       '증상 설명','발생 일시','영향 범위(Incident)','임시 해결책',
+      '첨부 개수','첨부 파일명',
       '1차 결재자','1차 이메일','1차 상태',
       'IT 담당자','IT 이메일','IT 상태',
       '신청일','최종 수정일'
@@ -1622,17 +1649,22 @@ async function exportITAdminExcel(){
       const al = apprMap[String(i.id)] || [];
       const a1 = al.find(a=>a.role&&(a.role.includes('Line')||a.order===1)) || al[0] || {};
       const a2 = al.find(a=>a.role&&(a.role.includes('IT')||a.role.includes('담당'))) || al[1] || {};
-      const sys = (f.Systems||'').split(';').filter(Boolean).join(', ');
+      // 여러 줄 텍스트 컬럼은 어느 것이든 껍데기가 붙어 나올 수 있으므로
+      // 날짜·숫자를 뺀 모든 값을 txt() 에 통과시킨다.
+      // 예전에는 Detail·Impact 등 일부만 거쳐서 「대상 시스템」에 <div> 가 그대로 나갔다.
+      const sys = txt(f.Systems||'').split(';').map(s=>s.trim()).filter(Boolean).join(', ');
+      const att = attInfo(f.AttachedFiles);
       return [
-        i.id, f.Title||'', f.TicketType||'', f.ChangeType||f.ReqType||'', f.Priority||'', f.Status||'',
-        f.RequesterEmail||'', sys, f.OtherSystem||'',
-        txt(f.Detail||''), f.ChangeType||'', txt(f.Impact||''), txt(f.ChangeReason||''),
-        f.ReqType||'', f.AcctPurpose||'', f.ReqEnv||'',
+        i.id, txt(f.Title), txt(f.TicketType), txt(f.ChangeType||f.ReqType), txt(f.Priority), txt(f.Status),
+        txt(f.RequesterEmail), sys, txt(f.OtherSystem),
+        txt(f.Detail), txt(f.ChangeType), txt(f.Impact), txt(f.ChangeReason),
+        txt(f.ReqType), txt(f.AcctPurpose), txt(f.ReqEnv),
         f.ReqFrom?f.ReqFrom.slice(0,10):'', f.ReqTo?f.ReqTo.slice(0,10):'',
-        txt(f.Symptom||''), f.IncOccurredAt?f.IncOccurredAt.slice(0,16).replace('T',' '):'',
-        txt(f.Scope||''), txt(f.Workaround||''),
-        a1.name||'', a1.email||'', a1.status||'',
-        a2.name||'', a2.email||'', a2.status||'',
+        txt(f.Symptom), f.IncOccurredAt?f.IncOccurredAt.slice(0,16).replace('T',' '):'',
+        txt(f.Scope), txt(f.Workaround),
+        att.n, att.names,
+        txt(a1.name), txt(a1.email), txt(a1.status),
+        txt(a2.name), txt(a2.email), txt(a2.status),
         f.RequestDate?f.RequestDate.slice(0,10):'',
         f.Modified?f.Modified.slice(0,10):''
       ];
@@ -1644,6 +1676,7 @@ async function exportITAdminExcel(){
       {wch:28},{wch:30},{wch:18},
       {wch:40},{wch:12},{wch:18},{wch:24},{wch:12},{wch:16},{wch:10},{wch:12},{wch:12},
       {wch:40},{wch:16},{wch:18},{wch:24},
+      {wch:9},{wch:44},
       {wch:16},{wch:28},{wch:10},
       {wch:16},{wch:28},{wch:10},
       {wch:12},{wch:12}
