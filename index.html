@@ -636,13 +636,27 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 
   <!-- ── 내 티켓 목록 ── -->
   <div id="tab-list" style="display:none">
-    <div class="card" style="padding:0;overflow:hidden">
+    <!-- 관리자 탭과 같은 구조로 맞춘다. 필터 바를 card 안에 두고 표를 그 아래에 둔다.
+         예전에는 padding:0 인 card 에 표만 들어 있어 다른 탭과 모양이 달랐다. -->
+    <div class="card">
+      <div class="filter-bar">
+        <select id="list-filter-status" onchange="renderMyList()">
+          <option value="">전체 상태</option>
+          <option>대기</option><option>처리중</option><option>승인완료</option><option>반려</option><option>철회</option>
+        </select>
+        <select id="list-filter-type" onchange="renderMyList()">
+          <option value="">전체 유형</option>
+          <option>Incident</option><option>Problem</option><option>Change</option><option>Request</option>
+        </select>
+        <input type="text" id="list-filter-search" oninput="renderMyList()" placeholder="제목 / 요청 제목 검색...">
+        <span id="list-count" style="font-size:13px;color:#605e5c;margin-left:auto"></span>
+      </div>
       <table class="list-table">
         <thead><tr>
-          <th>번호</th><th>유형</th><th>제목</th><th>시스템</th><th>우선순위</th><th>상태</th><th>등록일</th>
+          <th>번호</th><th>유형</th><th>제목</th><th>요청 제목</th><th>시스템</th><th>우선순위</th><th>상태</th><th>등록일</th>
         <th style="width:90px;text-align:center;white-space:nowrap;">Withdraw</th></tr></thead>
         <tbody id="list-body">
-          <tr><td colspan="8" style="text-align:center;padding:32px;color:#605e5c"><div class="dyn-dots" style="justify-content:center"><span></span><span></span><span></span></div></td></tr>
+          <tr><td colspan="9" style="text-align:center;padding:32px;color:#605e5c"><div class="dyn-dots" style="justify-content:center"><span></span><span></span><span></span></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -653,10 +667,10 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
     <div class="card" style="padding:0;overflow:hidden">
       <table class="list-table">
         <thead><tr>
-          <th>티켓번호</th><th>신청자</th><th>유형</th><th>제목</th><th>우선순위</th><th>상태</th><th>등록일</th><th>처리</th>
+          <th>티켓번호</th><th>신청자</th><th>유형</th><th>제목</th><th>요청 제목</th><th>우선순위</th><th>상태</th><th>등록일</th><th>처리</th>
         </tr></thead>
         <tbody id="appr-body">
-          <tr><td colspan="8" style="text-align:center;padding:32px;color:#605e5c">결재 대기 항목이 없습니다.</td></tr>
+          <tr><td colspan="9" style="text-align:center;padding:32px;color:#605e5c">결재 대기 항목이 없습니다.</td></tr>
         </tbody>
       </table>
     </div>
@@ -680,10 +694,10 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       </div>
       <table class="list-table">
         <thead><tr>
-          <th>번호</th><th>신청자</th><th>유형</th><th>제목</th><th>시스템</th><th>우선순위</th><th>상태</th><th>등록일</th>
+          <th>번호</th><th>신청자</th><th>유형</th><th>제목</th><th>요청 제목</th><th>시스템</th><th>우선순위</th><th>상태</th><th>등록일</th>
         </tr></thead>
         <tbody id="admin-body">
-          <tr><td colspan="8" style="text-align:center;padding:32px;color:#605e5c"><div class="dyn-dots" style="justify-content:center"><span></span><span></span><span></span></div></td></tr>
+          <tr><td colspan="9" style="text-align:center;padding:32px;color:#605e5c"><div class="dyn-dots" style="justify-content:center"><span></span><span></span><span></span></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -1539,18 +1553,89 @@ function typeBadge(t) {
 }
 
 // ── My list ──
+// 내 티켓 원본. 필터는 이 배열을 걸러 그린다 —
+// 필터를 바꿀 때마다 다시 조회하면 느리고 스로틀도 늘어난다.
+let myListRaw = [];
+
 async function loadMyList() {
   const tbody = document.getElementById('list-body');
   dynLoadStart('티켓 데이터 불러오는 중');
   try {
     if(!siteId){ const s = await api('/sites/'+SITE_PATH); siteId = s.id; }
     const data = await apiAll('/sites/' + siteId + '/lists/IT_Requests/items?$expand=fields&$top=500');
-    const mine = data.value
+    myListRaw = data.value
       .filter(i => (i.fields.RequesterEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase())
       .sort((a,b) => new Date(b.fields.RequestDate) - new Date(a.fields.RequestDate));
-    if (!mine.length) { dynLoadEnd(); pgSet('list', [], null, '등록된 티켓이 없습니다.', 8); return; }
-    dynLoadEnd(); pgSet('list', mine, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td>' + typeBadge(f.TicketType) + '</td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Title||'') + '</td><td style="font-size:11px;color:#605e5c;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td><td style="text-align:center;vertical-align:middle;padding:6px 8px;">'+_wdBtn(item.id,'IT_Approvals','IT_Requests',f.Status)+'</td></tr>'; }, '등록된 티켓이 없습니다.', 7);
-  } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
+    dynLoadEnd();
+    renderMyList();
+  } catch(e) {
+    dynLoadEnd();
+    myListRaw = [];
+    // 조회에 실패했는데 「등록된 티켓이 없습니다」 를 보여 주면
+    // 티켓이 사라졌다고 읽는다. 실패는 실패로 적는다.
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>';
+  }
+}
+
+// 필터를 적용해 다시 그린다. 관리자 탭과 같은 방식이다.
+function renderMyList() {
+  const fStatus = (document.getElementById('list-filter-status')||{}).value || '';
+  const fType   = (document.getElementById('list-filter-type')||{}).value || '';
+  const fSearch = ((document.getElementById('list-filter-search')||{}).value || '').trim().toLowerCase();
+
+  const rows = myListRaw.filter(function(item) {
+    const f = item.fields;
+    if (fStatus && (f.Status||'') !== fStatus) return false;
+    if (fType && (f.TicketType||'') !== fType) return false;
+    if (fSearch) {
+      const hay = ((f.Title||'') + ' ' + ticketTitleOf(f)).toLowerCase();
+      if (!hay.includes(fSearch)) return false;
+    }
+    return true;
+  });
+
+  const cntEl = document.getElementById('list-count');
+  if (cntEl) cntEl.textContent = (fStatus||fType||fSearch)
+    ? '필터 ' + rows.length + '건 / 전체 ' + myListRaw.length + '건'
+    : '총 ' + myListRaw.length + '건';
+
+  pgSet('list', rows, (item, idx) => {
+    const f = item.fields;
+    return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td>'
+      + typeBadge(f.TicketType) + '</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+      + (f.Title||'') + '</td>' + ticketTitleCell(f)
+      + '<td style="font-size:11px;color:#605e5c;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+      + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-'
+      + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>'
+      + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td><td style="text-align:center;vertical-align:middle;padding:6px 8px;">'
+      + _wdBtn(item.id,'IT_Approvals','IT_Requests',f.Status) + '</td></tr>';
+  }, (fStatus||fType||fSearch) ? '조회 결과가 없습니다.' : '등록된 티켓이 없습니다.', 9);
+}
+
+// 티켓의 「요청 제목」 한 줄. 상세 화면이 세 유형(장애·변경·요청) 모두
+// TicketTitle 을 「요청 제목」 으로 보여 준다. 목록에도 같은 값을 쓴다.
+//
+// SharePoint 한 줄 텍스트라 보통 평문이지만, 붙여넣기로 서식이 딸려 오면
+// 태그가 섞일 수 있다. DOMParser 로 걷어낸다.
+// innerHTML 로 파싱하면 안 된다 — <img src=x onerror=...> 가 그 자리에서 돈다.
+function ticketTitleOf(f) {
+  if (!f) return '';
+  let s = String(f.TicketTitle || '');
+  if (!s) return '';
+  if (s.includes('<') && s.includes('>')) {
+    try { s = new DOMParser().parseFromString(s, 'text/html').body.textContent || ''; }
+    catch (e) { s = s.replace(/<[^>]*>/g, ''); }
+  }
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+// 목록 셀 하나. 값이 없으면 흐린 「-」 로 둔다 —
+// 빈칸이면 값이 안 온 건지 원래 없는 건지 구분되지 않는다.
+function ticketTitleCell(f) {
+  const v = ticketTitleOf(f);
+  return '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'
+       + 'font-size:12px;color:#323130" title="' + escHtml(v) + '">'
+       + (v ? escHtml(v) : '<span style="color:#c8c6c4">-</span>') + '</td>';
 }
 
 // ── Approval queue ──
@@ -1568,13 +1653,13 @@ async function loadApprovalQueue() {
     const _mineRaw = apprData.value.filter(function(i){ return (i.fields.ApproverEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase(); });
     const _mineMap = _mineRaw.reduce(function(acc,i){var rid=String(i.fields.RequestID);if(!acc[rid]||i.fields.ApprovalOrder<acc[rid].fields.ApprovalOrder)acc[rid]=i;return acc;},{});
     const mine = Object.values(_mineMap).sort(function(a,b){ return b.fields.RequestID - a.fields.RequestID; });
-    if (!mine.length) { dynLoadEnd(); pgSet('appr', [], null, '결재 대기 항목이 없습니다.', 8); return; }
+    if (!mine.length) { dynLoadEnd(); pgSet('appr', [], null, '결재 대기 항목이 없습니다.', 9); return; }
     const rows = mine.map(function(item, idx) {
       const f = item.fields;
       const rf = reqMap[String(f.RequestID)] || {};
-      return '<tr onclick="showDetail(' + f.RequestID + ')" style="cursor:pointer"><td style="color:#0078d4">' + (idx+1) + '</td><td>' + (rf.RequesterEmail||'') + '</td><td>' + typeBadge(rf.TicketType) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (rf.Title||'') + '</td><td>' + priorityBadge(rf.Priority) + '</td><td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td><td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td><td onclick="event.stopPropagation()"><button class="btn-approve" onclick="showConfirm(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> <button class="btn-reject" onclick="showConfirm(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button></td></tr>';
+      return '<tr onclick="showDetail(' + f.RequestID + ')" style="cursor:pointer"><td style="color:#0078d4">' + (idx+1) + '</td><td>' + (rf.RequesterEmail||'') + '</td><td>' + typeBadge(rf.TicketType) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (rf.Title||'') + '</td>' + ticketTitleCell(rf) + '<td>' + priorityBadge(rf.Priority) + '</td><td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td><td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td><td onclick="event.stopPropagation()"><button class="btn-approve" onclick="showConfirm(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> <button class="btn-reject" onclick="showConfirm(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button></td></tr>';
     });
-    dynLoadEnd(); pgSet('appr', rows, function(r){ return r; }, '결재 대기 항목이 없습니다.', 8);
+    dynLoadEnd(); pgSet('appr', rows, function(r){ return r; }, '결재 대기 항목이 없습니다.', 9);
     const badge = document.getElementById('appr-badge');
     badge.textContent = mine.length; badge.style.display = 'inline';
   } catch(e) { dynLoadEnd(); console.error('loadApprovalQueue error:', e); }
@@ -1797,8 +1882,8 @@ async function loadAdminList() {
       (i.fields.Title||'').toLowerCase().includes(filterSearch)
     );
     document.getElementById('admin-count').textContent = '총 ' + items.length + '건';
-    dynLoadEnd(); pgSet('admin', items, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td>' + (f.RequesterEmail||'') + '</td><td>' + typeBadge(f.TicketType) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Title||'') + '</td><td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td></tr>'; }, '조회 결과가 없습니다.', 8);
-  } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
+    dynLoadEnd(); pgSet('admin', items, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td>' + (f.RequesterEmail||'') + '</td><td>' + typeBadge(f.TicketType) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Title||'') + '</td>' + ticketTitleCell(f) + '<td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td></tr>'; }, '조회 결과가 없습니다.', 9);
+  } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
 }
 
 // ── Show detail ──
