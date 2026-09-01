@@ -839,11 +839,14 @@ async function token() {
 async function apiAll(path) {
   // SharePoint 기본 페이지 크기(200건)보다 크게 요청해서 왕복 횟수를 줄임 (데이터 누락 없이 전량은 그대로 다 읽음)
   if (!/[?&]\$top=/.test(path)) path += (path.includes('?') ? '&' : '?') + '$top=999';
-  let items = [], url = path;
+  let items = [], url = path, pages = 0;
   while(url) {
     const d = await api(url);
     items = items.concat(d.value || []);
     url = d['@odata.nextLink'] ? d['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0','') : null;
+    // 목록이 아무리 커도 999건씩 60번이면 6만 건이다. 그 이상이면 nextLink 가
+    // 끊기지 않고 도는 것이므로, 무한히 돌며 브라우저를 잡아먹지 않게 멈춘다.
+    if (++pages > 60) { console.warn("[apiAll] 페이지 상한 초과 — 중단:", String(path).slice(0,120)); break; }
   }
   return {value: items};
 }
@@ -912,7 +915,17 @@ function logAction(systemName, action, detail) {
     } catch(e) { console.warn('[Log] 기록 실패(무시됨):', e.message); }
   })();
 }
-async function api(path, method='GET', body=null, _retry=0) {
+// 한 호출이 재시도로 쓸 수 있는 총 대기 시간과 횟수.
+// 예전에는 3회 고정이고 상한이 없었다. 서버가 Retry-After 로 60초를 요구하면
+// 그대로 60초를 기다려 화면이 그동안 멈췄다. 사용자는 먹통이라 여기고
+// 새로고침하는데, 그러면 요청이 또 쌓여 스로틀이 더 심해진다.
+//
+// 횟수를 늘리되 총 대기 시간에 상한을 둔다 — 오래 멈추지 않으면서 성공률만 올린다.
+// 간격도 0.8초 배수에서 0.4초 배수로 줄여, 한 번에 성공하는 평소에는 오히려 빨라진다.
+const API_RETRY_MAX = 5;
+const API_RETRY_BUDGET = 8000;   // ms
+
+async function api(path, method='GET', body=null, _retry=0, _spent=0) {
   const t = await token();
   const opts = { method, headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json', Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } };
   if (body) opts.body = JSON.stringify(body);
@@ -923,12 +936,18 @@ async function api(path, method='GET', body=null, _retry=0) {
   // 503/504는 요청이 이미 처리됐을 수 있어 POST는 재시도하지 않는다(중복 생성 방지).
   // GET/PATCH는 같은 값을 다시 쓰는 형태라 재시도해도 안전하다.
   const _idem = method === 'GET' || method === 'PATCH';
-  if(!res.ok && (res.status === 429 || (_idem && [503,504].includes(res.status))) && _retry < 3) {
+  if(!res.ok && (res.status === 429 || (_idem && [503,504].includes(res.status))) && _retry < API_RETRY_MAX) {
     const _ra = parseInt(res.headers.get('Retry-After')||'0',10);
-    const _wait = _ra>0 ? _ra*1000 : Math.pow(2,_retry)*800;   // 0.8s -> 1.6s -> 3.2s
-    console.warn('[API] '+res.status+' 재시도 '+(_retry+1)+'/3 ('+_wait+'ms 후): '+path.slice(0,60));
-    await new Promise(r=>setTimeout(r,_wait));
-    return api(path, method, body, _retry + 1);
+    let _wait = _ra>0 ? _ra*1000 : Math.pow(2,_retry)*400;
+    // 서버가 긴 대기를 요구해도 그대로 따르지 않는다. 남은 예산만큼만 기다린다.
+    if (_spent + _wait > API_RETRY_BUDGET) _wait = API_RETRY_BUDGET - _spent;
+    if (_wait <= 0) {
+      console.warn(`[API] ${res.status} — 대기 예산(${API_RETRY_BUDGET}ms)을 넘어 재시도하지 않습니다: ${method} ${path.slice(0,60)}`);
+    } else {   // 0.8s -> 1.6s -> 3.2s
+    console.warn('[API] '+res.status+' 재시도 '+(_retry+1)+'/'+API_RETRY_MAX+' ('+_wait+'ms 후): '+path.slice(0,60));
+      await new Promise(r=>setTimeout(r,_wait));
+      return api(path, method, body, _retry + 1, _spent + _wait);
+    }
   }
   if (!res.ok) throw new Error((await res.json())?.error?.message || res.status);
   return res.status === 204 ? null : res.json();
