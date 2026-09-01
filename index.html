@@ -1630,8 +1630,8 @@ function renderMyList() {
     return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td>'
       + typeBadge(f.TicketType) + '</td><td title="' + escHtml(f.Title||'') + '">'
       + escHtml(f.Title||'') + '</td>' + ticketTitleCell(f)
-      + '<td style="font-size:11px;color:#605e5c" title="' + escHtml(f.Systems||'') + '">'
-      + escHtml(f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-'
+      + '<td style="font-size:11px;color:#605e5c" title="' + escHtml(systemsOf(f)) + '">'
+      + escHtml(systemsOf(f) || '-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-'
       + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>'
       + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td><td style="text-align:center;vertical-align:middle;padding:6px 8px;">'
       + _wdBtn(item.id,'IT_Approvals','IT_Requests',f.Status) + '</td></tr>';
@@ -1644,6 +1644,22 @@ function renderMyList() {
 // SharePoint 한 줄 텍스트라 보통 평문이지만, 붙여넣기로 서식이 딸려 오면
 // 태그가 섞일 수 있다. DOMParser 로 걷어낸다.
 // innerHTML 로 파싱하면 안 된다 — <img src=x onerror=...> 가 그 자리에서 돈다.
+// 「시스템」 한 칸. Systems 는 SharePoint 리치 텍스트라 값에 ExternalClass 래퍼가
+// 딸려 온다. 예전에는 생으로 innerHTML 에 넣어 래퍼가 렌더링되며 글자만 보였는데,
+// escHtml 을 씌우자 태그가 글자로 나왔다. 상세 화면(showDetail)이 stripHtml 로
+// 걷어내는 것과 같은 처리를 목록에도 해 준다.
+// innerHTML 로 파싱하면 안 된다 — <img src=x onerror=...> 가 그 자리에서 돈다.
+function systemsOf(f) {
+  if (!f) return '';
+  let s = String(f.Systems || '');
+  if (!s) return '';
+  if (s.includes('<') && s.includes('>')) {
+    try { s = new DOMParser().parseFromString(s, 'text/html').body.textContent || ''; }
+    catch (e) { s = s.replace(/<[^>]*>/g, ''); }
+  }
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 function ticketTitleOf(f) {
   if (!f) return '';
   let s = String(f.TicketTitle || '');
@@ -1908,7 +1924,7 @@ async function loadAdminList() {
       (i.fields.Title||'').toLowerCase().includes(filterSearch)
     );
     document.getElementById('admin-count').textContent = '총 ' + items.length + '건';
-    dynLoadEnd(); pgSet('admin', items, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td title="' + escHtml(f.RequesterEmail||'') + '">' + escHtml(f.RequesterEmail||'') + '</td><td>' + typeBadge(f.TicketType) + '</td><td title="' + escHtml(f.Title||'') + '">' + escHtml(f.Title||'') + '</td>' + ticketTitleCell(f) + '<td style="font-size:11px" title="' + escHtml(f.Systems||'') + '">' + escHtml(f.Systems||'-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td></tr>'; }, '조회 결과가 없습니다.', 9);
+    dynLoadEnd(); pgSet('admin', items, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td title="' + escHtml(f.RequesterEmail||'') + '">' + escHtml(f.RequesterEmail||'') + '</td><td>' + typeBadge(f.TicketType) + '</td><td title="' + escHtml(f.Title||'') + '">' + escHtml(f.Title||'') + '</td>' + ticketTitleCell(f) + '<td style="font-size:11px" title="' + escHtml(systemsOf(f)) + '">' + escHtml(systemsOf(f) || '-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td></tr>'; }, '조회 결과가 없습니다.', 9);
   } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
 }
 
