@@ -1035,7 +1035,14 @@ async function boot(account) {
     }
     const site = await api('/sites/' + SITE_PATH);
     siteId = site.id;
-    const _cfg = await loadSystemConfig();
+
+    // 설정 파일과 직원 명부는 서로를 필요로 하지 않는다. 둘 다 siteId 만 있으면 된다.
+    // 예전에는 하나씩 기다려서 두 파일을 내려받는 시간이 그대로 더해졌다.
+    // 함께 시작하면 둘 중 느린 쪽만큼만 걸린다.
+    const [_cfg] = await Promise.all([
+      loadSystemConfig(),
+      loadEmployees(),
+    ]);
     if (_cfg) {
       const _contact = cfgVal(_cfg,'IT_CONTACT',cfgVal(_cfg,'CONTACT_EMAIL',{email:''}));
       setHdrContact('it-contact-email', _contact.email);
@@ -1047,8 +1054,9 @@ async function boot(account) {
        ['cfg-it-mgr-name2',IT_MANAGER.name],['cfg-it-mgr-email2',IT_MANAGER.email],
       ].forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.value=val;});
     }
-    await loadEmployees();
-    await checkApprover();
+    // 결재 대기 배지는 화면이 뜬 뒤에 채워도 된다. 기다리면 그만큼 흰 화면이 길어진다.
+    // 실패해도 화면은 그대로 뜨고 배지만 비어 있게 둔다.
+    checkApprover().catch((e) => console.warn('[IT] 결재 배지 조회 실패:', e && e.message));
     loadUnifiedBadge().catch(()=>{});
   } catch(e) { alert('SharePoint 연결 오류: ' + e.message); }
 
@@ -1213,7 +1221,17 @@ async function checkApprover() {
 
   // 결재 대기 배지: 내 이메일로 등록된 대기 건수
   try {
-    const data = await apiAll('/sites/' + siteId + "/lists/IT_Approvals/items?$expand=fields&$filter=fields/Status eq '대기'")
+    // 배지에 쓰는 것은 「내 이메일이 결재자인 대기 건이 몇 건인가」 뿐이다.
+    // expand=fields 로 전 컬럼을 받으면 의견·처리일 같은 값까지 따라온다.
+    // 두 필드만 골라 받아 응답을 가볍게 한다.
+    //
+    // 내 이메일로 서버에서 거르지 않는 이유 — ApproverEmail 에 SharePoint 색인이 없다.
+    // 색인 없는 열로 $filter 를 걸면 5,000건 임계값에서 막히고, 지금 쓰는 Prefer 헤더
+    // (HonorNonIndexedQueriesWarningMayFailRandomly)는 이름 그대로 무작위로 실패한다.
+    // 색인을 건 뒤에 서버 필터로 바꾸는 편이 안전하다.
+    const data = await apiAll('/sites/' + siteId
+      + "/lists/IT_Approvals/items?expand=fields(select=ApproverEmail,Status)"
+      + "&$filter=fields/Status eq '대기'")
     const mine = data.value.filter(i =>
       (i.fields.ApproverEmail||'').toLowerCase() === (user.email||user.username||'').toLowerCase()
     );
@@ -1909,7 +1927,14 @@ document.addEventListener('click', async function(e) {
   finally { loading(false); }
 });
 function loading(v) { document.getElementById('loading').classList.toggle('show', v); }
-function showError(msg) { const el = document.getElementById('login-error'); el.style.display = 'block'; el.textContent = '오류: ' + msg; }
+// 로그인 화면의 오류 표시. 마크업 id 는 login-err 인데 login-error 를 찾고 있어,
+// 로그인에 실패하면 오류 안내 대신 스크립트 오류가 났다(el 이 null).
+function showError(msg) {
+  const el = document.getElementById('login-err');
+  if (!el) { alert('오류: ' + msg); return; }
+  el.style.display = 'block';
+  el.textContent = '오류: ' + msg;
+}
 function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
 
 // ── PDF 출력 ──
