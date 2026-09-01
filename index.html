@@ -670,7 +670,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="tbl-scroll">
       <table class="list-table">
         <thead><tr>
-          <th style="width:46px">번호</th><th style="width:74px">유형</th><th style="width:186px">제목</th><th>요청 제목</th><th style="width:150px">시스템</th><th style="width:80px">우선순위</th><th style="width:78px">상태</th><th style="width:116px">등록일</th>
+          <th style="width:46px">번호</th><th style="width:186px">제목</th><th style="width:74px">유형</th><th>요청 제목</th><th style="width:150px">시스템</th><th style="width:80px">우선순위</th><th style="width:78px">상태</th><th style="width:116px">등록일</th>
         <th style="width:96px;text-align:center;white-space:nowrap;">Withdraw</th></tr></thead>
         <tbody id="list-body">
           <tr><td colspan="9" style="text-align:center;padding:32px;color:#605e5c"><div class="dyn-dots" style="justify-content:center"><span></span><span></span><span></span></div></td></tr>
@@ -686,7 +686,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="tbl-scroll">
       <table class="list-table">
         <thead><tr>
-          <th style="width:178px">티켓번호</th><th style="width:172px">신청자</th><th style="width:74px">유형</th><th style="width:178px">제목</th><th>요청 제목</th><th style="width:80px">우선순위</th><th style="width:78px">상태</th><th style="width:116px">등록일</th><th style="width:96px">처리</th>
+          <th style="width:178px">티켓번호</th><th style="width:172px">신청자</th><th style="width:178px">제목</th><th style="width:74px">유형</th><th>요청 제목</th><th style="width:80px">우선순위</th><th style="width:78px">상태</th><th style="width:116px">등록일</th><th style="width:96px">처리</th>
         </tr></thead>
         <tbody id="appr-body">
           <tr><td colspan="9" style="text-align:center;padding:32px;color:#605e5c">결재 대기 항목이 없습니다.</td></tr>
@@ -715,7 +715,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="tbl-scroll">
       <table class="list-table">
         <thead><tr>
-          <th style="width:46px">번호</th><th style="width:172px">신청자</th><th style="width:74px">유형</th><th style="width:178px">제목</th><th>요청 제목</th><th style="width:132px">시스템</th><th style="width:80px">우선순위</th><th style="width:78px">상태</th><th style="width:116px">등록일</th>
+          <th style="width:46px">번호</th><th style="width:172px">신청자</th><th style="width:178px">제목</th><th style="width:74px">유형</th><th>요청 제목</th><th style="width:132px">시스템</th><th style="width:80px">우선순위</th><th style="width:78px">상태</th><th style="width:116px">등록일</th>
         </tr></thead>
         <tbody id="admin-body">
           <tr><td colspan="9" style="text-align:center;padding:32px;color:#605e5c"><div class="dyn-dots" style="justify-content:center"><span></span><span></span><span></span></div></td></tr>
@@ -1627,9 +1627,9 @@ function renderMyList() {
 
   pgSet('list', rows, (item, idx) => {
     const f = item.fields;
-    return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td>'
-      + typeBadge(f.TicketType) + '</td><td title="' + escHtml(f.Title||'') + '">'
-      + escHtml(f.Title||'') + '</td>' + ticketTitleCell(f)
+    return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td>'
+      + '<td title="' + escHtml(f.Title||'') + '">'
+      + escHtml(f.Title||'') + '</td><td>' + typeBadge(f.TicketType) + '</td>' + ticketTitleCell(f)
       + '<td style="font-size:11px;color:#605e5c" title="' + escHtml(systemsOf(f)) + '">'
       + escHtml(systemsOf(f) || '-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-'
       + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>'
@@ -1699,7 +1699,7 @@ async function loadApprovalQueue() {
     const rows = mine.map(function(item, idx) {
       const f = item.fields;
       const rf = reqMap[String(f.RequestID)] || {};
-      return '<tr onclick="showDetail(' + f.RequestID + ')" style="cursor:pointer"><td style="color:#0078d4">' + (idx+1) + '</td><td title="' + escHtml(rf.RequesterEmail||'') + '">' + escHtml(rf.RequesterEmail||'') + '</td><td>' + typeBadge(rf.TicketType) + '</td><td title="' + escHtml(rf.Title||'') + '">' + escHtml(rf.Title||'') + '</td>' + ticketTitleCell(rf) + '<td>' + priorityBadge(rf.Priority) + '</td><td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td><td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td><td onclick="event.stopPropagation()"><button class="btn-approve" onclick="showConfirm(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> <button class="btn-reject" onclick="showConfirm(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button></td></tr>';
+      return '<tr onclick="showDetail(' + f.RequestID + ')" style="cursor:pointer"><td style="color:#0078d4">' + (idx+1) + '</td><td title="' + escHtml(rf.RequesterEmail||'') + '">' + escHtml(rf.RequesterEmail||'') + '</td><td title="' + escHtml(rf.Title||'') + '">' + escHtml(rf.Title||'') + '</td><td>' + typeBadge(rf.TicketType) + '</td>' + ticketTitleCell(rf) + '<td>' + priorityBadge(rf.Priority) + '</td><td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td><td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td><td onclick="event.stopPropagation()"><button class="btn-approve" onclick="showConfirm(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> <button class="btn-reject" onclick="showConfirm(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button></td></tr>';
     });
     dynLoadEnd(); pgSet('appr', rows, function(r){ return r; }, '결재 대기 항목이 없습니다.', 9);
     const badge = document.getElementById('appr-badge');
@@ -1924,7 +1924,7 @@ async function loadAdminList() {
       (i.fields.Title||'').toLowerCase().includes(filterSearch)
     );
     document.getElementById('admin-count').textContent = '총 ' + items.length + '건';
-    dynLoadEnd(); pgSet('admin', items, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td title="' + escHtml(f.RequesterEmail||'') + '">' + escHtml(f.RequesterEmail||'') + '</td><td>' + typeBadge(f.TicketType) + '</td><td title="' + escHtml(f.Title||'') + '">' + escHtml(f.Title||'') + '</td>' + ticketTitleCell(f) + '<td style="font-size:11px" title="' + escHtml(systemsOf(f)) + '">' + escHtml(systemsOf(f) || '-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td></tr>'; }, '조회 결과가 없습니다.', 9);
+    dynLoadEnd(); pgSet('admin', items, (item, idx) => { const f = item.fields; return '<tr style="cursor:pointer" onclick="showDetail(' + item.id + ')"><td>' + (idx+1) + '</td><td title="' + escHtml(f.RequesterEmail||'') + '">' + escHtml(f.RequesterEmail||'') + '</td><td title="' + escHtml(f.Title||'') + '">' + escHtml(f.Title||'') + '</td><td>' + typeBadge(f.TicketType) + '</td>' + ticketTitleCell(f) + '<td style="font-size:11px" title="' + escHtml(systemsOf(f)) + '">' + escHtml(systemsOf(f) || '-') + '</td><td>' + priorityBadge(f.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'') + '</span></td><td>' + (f.RequestDate ? fmtDate(f.RequestDate) : '') + '</td></tr>'; }, '조회 결과가 없습니다.', 9);
   } catch(e) { dynLoadEnd(); tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#a4262c">' + e.message + '</td></tr>'; }
 }
 
