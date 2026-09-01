@@ -278,6 +278,8 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 #tab-list .list-table th,#tab-approval .list-table th,#tab-admin .list-table th{white-space:normal;line-height:1.25;font-size:.7rem}
 /* 지정 폭을 넘는 내용은 말줄임으로 접는다. 전체 내용은 마우스를 올리면 title 로 보인다. */
 #tab-list .list-table td,#tab-approval .list-table td,#tab-admin .list-table td{overflow:hidden;text-overflow:ellipsis}
+/* 결재함의 마지막 열은 승인·반려 버튼이다. 말줄임되면 버튼이 잘려 누를 수 없다. */
+#tab-approval .list-table td:last-child{overflow:visible;text-overflow:clip;white-space:nowrap;padding-left:8px;padding-right:8px}
 .badge-type{background:#e1f0ff;color:#0078d4;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
 .badge-대기{background:#fff4ce;color:#7d5700;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
 .badge-승인완료{background:#dff6dd;color:#107c10;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
@@ -686,7 +688,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="tbl-scroll">
       <table class="list-table">
         <thead><tr>
-          <th style="width:178px">티켓번호</th><th style="width:172px">신청자</th><th style="width:178px">제목</th><th style="width:74px">유형</th><th>요청 제목</th><th style="width:80px">우선순위</th><th style="width:78px">상태</th><th style="width:116px">등록일</th><th style="width:96px">처리</th>
+          <th style="width:46px">번호</th><th style="width:172px">신청자</th><th style="width:178px">제목</th><th style="width:74px">유형</th><th>요청 제목</th><th style="width:80px">우선순위</th><th style="width:78px">상태</th><th style="width:116px">등록일</th><th style="width:130px">처리</th>
         </tr></thead>
         <tbody id="appr-body">
           <tr><td colspan="9" style="text-align:center;padding:32px;color:#605e5c">결재 대기 항목이 없습니다.</td></tr>
