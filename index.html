@@ -1868,7 +1868,8 @@ async function exportITAdminExcel(){
       '신청일','최종 수정일'
     ];
 
-    let _xlNo = 0;   // 번호는 목록 ID 가 아니라 내보낸 순서(09-10)
+    // 번호 = 신청 순서(가장 오래된 건이 1). 내보내는 행 순서와 무관하게 목록 ID 오름차순으로 매긴다(09-10).
+    const _xlRank = (() => { const m = new Map(); items.map(x => Number(x.id)).sort((a,b) => a-b).forEach((id,i) => m.set(String(id), i+1)); return id => m.get(String(id)) || ''; })();
     const rows = [headers, ...items.map(i=>{
       const f = i.fields;
       const al = apprMap[String(i.id)] || [];
@@ -1880,7 +1881,7 @@ async function exportITAdminExcel(){
       const sys = txt(f.Systems||'').split(';').map(s=>s.trim()).filter(Boolean).join(', ');
       const att = attInfo(f.AttachedFiles);
       return [
-        ++_xlNo, txt(f.Title), txt(f.TicketType), txt(f.ChangeType||f.ReqType), txt(f.Priority), txt(f.Status),
+        _xlRank(i.id), txt(f.Title), txt(f.TicketType), txt(f.ChangeType||f.ReqType), txt(f.Priority), txt(f.Status),
         txt(f.RequesterEmail), sys, txt(f.OtherSystem),
         txt(f.Detail), txt(f.ChangeType), txt(f.Impact), txt(f.ChangeReason),
         txt(f.ReqType), txt(f.AcctPurpose), txt(f.ReqEnv),
