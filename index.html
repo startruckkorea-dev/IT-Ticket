@@ -1868,6 +1868,7 @@ async function exportITAdminExcel(){
       '신청일','최종 수정일'
     ];
 
+    let _xlNo = 0;   // 번호는 목록 ID 가 아니라 내보낸 순서(09-10)
     const rows = [headers, ...items.map(i=>{
       const f = i.fields;
       const al = apprMap[String(i.id)] || [];
@@ -1879,7 +1880,7 @@ async function exportITAdminExcel(){
       const sys = txt(f.Systems||'').split(';').map(s=>s.trim()).filter(Boolean).join(', ');
       const att = attInfo(f.AttachedFiles);
       return [
-        i.id, txt(f.Title), txt(f.TicketType), txt(f.ChangeType||f.ReqType), txt(f.Priority), txt(f.Status),
+        ++_xlNo, txt(f.Title), txt(f.TicketType), txt(f.ChangeType||f.ReqType), txt(f.Priority), txt(f.Status),
         txt(f.RequesterEmail), sys, txt(f.OtherSystem),
         txt(f.Detail), txt(f.ChangeType), txt(f.Impact), txt(f.ChangeReason),
         txt(f.ReqType), txt(f.AcctPurpose), txt(f.ReqEnv),
