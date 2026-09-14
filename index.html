@@ -879,6 +879,48 @@ async function token() {
 }
 
 // ── 페이지네이션 전체 조회 헬퍼 (기존 .value 접근 호환) ──
+
+/* ── 결재 대리 지정(AAC) 반영 ────────────────────────────────────────
+   상신 시점에 결재자가 대리 지정 기간 중이면 결재행을 대리인 앞으로 만든다(09-14 결정, GW 와 같은 규칙).
+   처리 기록은 대리인 본인의 결재로 남고, 원래 결재자는 역할 문구에 남긴다.
+   연쇄 대리는 따르지 않고, 대리인이 이미 결재선에 있으면 치환하지 않으며,
+   AAC 조회가 실패하면 원래 결재자로 진행한다(조회 실패로 상신을 막지 않는다).            */
+const LIST_AAC = 'AAC_Requests';
+const AAC_SYS_KEY = 'IT';
+async function aacActiveDelegations() {
+  const now = new Date(new Date().getTime() + 9 * 3600 * 1000).toISOString().slice(0, 19);
+  const res = await apiAll('/sites/' + siteId + '/lists/' + LIST_AAC + "/items?$expand=fields&$top=500&$filter=fields/Status eq '승인완료'");
+  return (res.value || []).map(x => x.fields).filter(f => {
+    const s = String(f.StartDate || '').slice(0, 19), e = String(f.EndDate || '').slice(0, 19);
+    if (!s || !e || s > now || e < now) return false;
+    const sc = String(f.Scope || '').trim();
+    return !sc || sc === 'ALL' || sc.split(',').map(x => x.trim()).includes(AAC_SYS_KEY);
+  });
+}
+async function aacApplyDelegation(approvers) {
+  let act = [];
+  try { act = await aacActiveDelegations(); }
+  catch (e) { console.warn('[AAC] 대리 지정 조회 실패 — 원래 결재자로 진행:', e && e.message); return approvers; }
+  if (!act.length) return approvers;
+  const byDelegator = new Map();
+  act.forEach(f => { const k = String(f.RequesterEmail || '').trim().toLowerCase(); if (k && !byDelegator.has(k)) byDelegator.set(k, f); });
+  const deputies = new Set(act.map(f => String(f.DeputyEmail || '').trim().toLowerCase()));
+  const inLine = new Set(approvers.map(a => String(a.email || '').trim().toLowerCase()));
+  return approvers.map(a => {
+    const em = String(a.email || '').trim().toLowerCase();
+    const d = byDelegator.get(em);
+    if (!d) return a;
+    const dep = String(d.DeputyEmail || '').trim().toLowerCase();
+    if (!dep || dep === em) return a;
+    if (deputies.has(em)) { console.warn('[AAC] 연쇄 대리는 따르지 않습니다:', em); return a; }
+    if (inLine.has(dep)) { console.warn('[AAC] 대리인이 이미 결재선에 있어 치환하지 않습니다:', dep); return a; }
+    inLine.add(dep);
+    return { ...a, name: d.DeputyName || a.name, email: d.DeputyEmail,
+             role: a.role + ' · 대리(' + (a.name || a.email) + ')',
+             _aacOrigName: a.name, _aacOrigEmail: a.email, _aacReqId: d.Title || '' };
+  });
+}
+
 async function apiAll(path) {
   // SharePoint 기본 페이지 크기(200건)보다 크게 요청해서 왕복 횟수를 줄임 (데이터 누락 없이 전량은 그대로 다 읽음)
   if (!/[?&]\$top=/.test(path)) path += (path.includes('?') ? '&' : '?') + '$top=999';
@@ -1505,8 +1547,13 @@ async function submitTicket(prefix) {
       { name: IT_MANAGER.name, email: IT_MANAGER.email, role: 'IT담당자', order: 2 },
     ];
 
-    for (const a of approvers) {
-      await api('/sites/' + siteId + '/lists/IT_Approvals/items', 'POST', { fields: {
+    // 대리 지정이 걸린 결재자는 대리인 앞으로 바꾼다(치환 실패 시 원래대로 진행)
+    const approversFinal = await aacApplyDelegation(approvers);
+    const _aacSubs = approversFinal.filter(a => a._aacOrigEmail);
+    if (_aacSubs.length) console.log('[AAC] 대리 치환:', _aacSubs.map(a => a._aacOrigEmail + ' → ' + a.email).join(', '));
+
+    for (const a of approversFinal) {
+      const _row = await api('/sites/' + siteId + '/lists/IT_Approvals/items', 'POST', { fields: {
         Title: 'IT-' + new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10) + '_ID-' + reqId + '-' + a.order,
         RequestID: parseInt(reqId),
         ApproverEmail: a.email,
@@ -1515,6 +1562,13 @@ async function submitTicket(prefix) {
         ApprovalOrder: a.order,
         Status: a.order === 1 ? '대기' : '대기(잠김)'
       }});
+      // 원 결재자 기록 — 열이 없는 목록에서도 상신이 막히지 않게 별도 PATCH 로, 실패해도 넘어간다.
+      if (a._aacOrigEmail && _row && _row.id) {
+        try {
+          await api('/sites/' + siteId + '/lists/IT_Approvals/items/' + _row.id, 'PATCH', { fields: {
+            OriginalApproverEmail: a._aacOrigEmail, OriginalApproverName: a._aacOrigName || '', DelegationRef: a._aacReqId || '' } });
+        } catch (pe) { console.warn('[AAC] 원 결재자 기록 실패(행은 정상):', pe && pe.message); }
+      }
     }
 
     showAlert('티켓이 등록되었습니다.', 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId);
