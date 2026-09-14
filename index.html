@@ -1138,7 +1138,6 @@ function cfgEmails(cfg, keys) {
 }
 
 async function boot(account) {
-  await loadMyDelegations();   // 내가 대리인으로 받은 위임 — 결재함 판정에 쓴다
   user = account;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -1155,6 +1154,14 @@ async function boot(account) {
     }
     const site = await api('/sites/' + SITE_PATH);
     siteId = site.id;
+
+    // ⚠ 반드시 user.email 확정 + siteId 확정 「뒤」에 호출해야 한다.
+    //   loadMyDelegations() 는 user.email/username 으로 대리인 여부를 판정하고
+    //   '/sites/'+siteId+'/lists/AAC_Requests' 를 조회한다. 예전에는 boot() 첫 줄에
+    //   있어서 user=null·siteId=null 인 채로 실행됐고, me 가 빈 배열이라 즉시
+    //   return → _aacDelegated 가 항상 비어 있었다(대리 결재가 전혀 동작하지 않음).
+    //   aps(loadAll 안)·GW(user 대입 뒤)는 처음부터 이 순서였다.
+    await loadMyDelegations();   // 내가 대리인으로 받은 위임 — 결재함 판정에 쓴다
 
     // 설정 파일과 직원 명부는 서로를 필요로 하지 않는다. 둘 다 siteId 만 있으면 된다.
     // 예전에는 하나씩 기다려서 두 파일을 내려받는 시간이 그대로 더해졌다.
