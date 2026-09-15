@@ -910,7 +910,14 @@ async function loadMyDelegations(){
       const s=_aacKst(f.StartDate), e=_aacKst(f.EndDate);
       if(!s||!e||s>now||e<now) return;
       const sc=String(f.Scope||'').trim();
-      if(sc && sc!=='ALL' && !sc.split(',').map(x=>x.trim()).includes(AAC_SYS_KEY)) return;
+      // Scope 는 쉼표 구분 키 목록이고 'ALL' 토큰이 「APS 전체」를 뜻한다.
+      // 예전에는 sc!=='ALL' 로 문자열 전체를 비교해서, AAC 가 외부 시스템까지
+      // 함께 받게 되며 생긴 'ALL,FLEX' 같은 값에서 이 시스템이 제외됐다.
+      // 목록 안에 'ALL' 이 있으면 통과시킨다.
+      if(sc){
+        const _sk=sc.split(',').map(x=>x.trim());
+        if(!_sk.includes('ALL') && !_sk.includes(AAC_SYS_KEY)) return;
+      }
       const dg=String(f.RequesterEmail||'').trim().toLowerCase();
       if(dg) _aacDelegated.set(dg,{name:f.RequesterName||dg,title:f.Title||''});
     });
