@@ -1613,7 +1613,6 @@ function switchTab(name) {
   // 목록 세 탭은 열이 9개라 960px 로는 좁다. 이 탭에서만 1280px 로 넓힌다
   // (GW·ACC 와 같은 폭). 신청 폼은 입력란이 지나치게 늘어나므로 960px 를 유지한다.
   const _appEl = document.getElementById('app');
-  if (_appEl) _appEl.style.maxWidth = ['list','approval','admin'].includes(name) ? '1280px' : '960px';
   // 탭 전환 시 체크박스 상태 기반으로 박스 재동기화
   setTimeout(syncNoticeBoxes, 50);
   ['chg-cod-notice','chg-vpn-notice','chg-afs-notice','chg-watermark-notice'].forEach(id => {
@@ -1640,6 +1639,11 @@ function switchTab(name) {
       return;
     }
   }
+
+    // 폭 조정 — 권한 검사를 통과한 뒤에 한다.
+    // 예전에는 먼저 바꿔서, 권한 없는 계정이 관리자 탭을 누르면 프레임만 넓어지고
+    // 그 뒤 return 으로 빠져 안내도 탭 내용도 없는 넓은 빈 화면이 남았다(SCC 100d759).
+  if (_appEl) _appEl.style.maxWidth = ['list','approval','admin'].includes(name) ? '1280px' : '960px';
 
   ['incident','change','list','approval','admin'].forEach(t => {
     document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
