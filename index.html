@@ -790,12 +790,20 @@ function escHtml(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+// SharePoint 「여러 줄 텍스트」 는 값을 <div class="ExternalClass…"> 로 감싸고
+// 큰따옴표·콜론·앰퍼샌드를 엔티티로 바꿔 저장한다. 그것을 사람이 읽는 글자로 되돌린다.
+// 규칙은 Excel 내보내기와 같은 것 하나만 쓴다 — 예전에는 화면(stripHtml)·Excel(txt)·
+// 의견(spText) 이 제각각이라 같은 값이 화면에서는 &quot; 로, Excel 에서는 " 로 나왔다.
+// 줄바꿈은 </div>·</li>·</tr> 도 함께 본다 — <br> 없이 <div> 로만 줄을 나눈 값이 있다.
+// &amp; 는 맨 마지막에 푼다. 먼저 풀면 &amp;lt; 가 < 로 이중 복원되어,
+// 태그를 지운 뒤에 태그가 되살아난다.
 function spText(s){
   return String(s==null?'':s)
-    .replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n').replace(/<[^>]*>/g,'')
+    .replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|li|tr)>/gi,'\n').replace(/<[^>]*>/g,'')
     .replace(/&nbsp;/gi,' ')
     .replace(/&#(\d+);/g,function(m,d){var n=parseInt(d,10);return (n>=32&&n<=1114111)?String.fromCodePoint(n):m;})
-    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+    .replace(/&#x([0-9a-fA-F]+);/gi,function(m,h){var n=parseInt(h,16);return (n>=32&&n<=1114111)?String.fromCodePoint(n):m;})
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/gi,'"').replace(/&#39;/g,"'").replace(/&apos;/gi,"'")
     .replace(/&amp;/g,'&').replace(/\n{3,}/g,'\n\n').trim();
 }
 function safeText(s){ return escHtml(spText(s)); }
@@ -1967,18 +1975,8 @@ async function exportITAdminExcel(){
     // 「https&#58;//...」, 「<div class="ExternalClass...">SharePoint</div>」 처럼 나갔다.
     // 태그를 지우기 전에 <br>·</div> 를 줄바꿈으로 바꿔야 여러 줄 내용이 한 줄로 붙지 않는다.
     // &amp; 는 맨 마지막에 푼다. 먼저 풀면 &amp;lt; 가 < 로 이중 복원된다.
-    const txt = v => String(v == null ? '' : v)
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(div|p|li|tr)>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&#(\d+);/g, (m, d) => String.fromCharCode(Number(d)))
-      .replace(/&#x([0-9a-fA-F]+);/g, (m, h) => String.fromCharCode(parseInt(h, 16)))
-      .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    // 화면·Excel 이 같은 글자를 보여 주도록 규칙은 spText 하나만 쓴다.
+    const txt = v => spText(v);
 
     // 첨부는 「파일명||driveId||itemId」 를 ; 로 이어 붙여 한 칸에 저장한다(옛 형식은 파일명|URL).
     // 개수와 파일명을 따로 뽑아 두 열로 내보낸다.
@@ -2070,9 +2068,15 @@ async function loadAdminList() {
 }
 
 // ── Show detail ──
+// 상세 화면의 SharePoint 리치 텍스트 정리. 규칙은 spText 하나로 모은다.
+// 예전 구현은 &quot;·&#39;·&#58; 를 그대로 남겼고, 그 뒤 linkifyTicketRefs 가
+// & 를 다시 &amp; 로 바꾸는 바람에 화면에 「&quot;」 글자가 그대로 보였다
+// (09-20 사용자 지적 · REQ-2026-09-17_ID-329).
+// 게다가 &amp; 를 가장 먼저 풀어, &amp;lt;img …&amp;gt; 처럼 두 번 인코딩된 값이
+// 태그 제거 뒤에 <img …> 로 되살아날 수 있었다.
 function stripHtml(v) {
   if (!v || typeof v !== 'string') return v;
-  return v.replace(/<[^>]*>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ').replace(/&#58;/g,':').trim();
+  return spText(v);
 }
 
 async function showDetail(requestId) {
@@ -2084,10 +2088,15 @@ async function showDetail(requestId) {
     f.Symptom    = f['OccurredAt_x002c__x0020_Symptom_'] || f.Symptom;
     f.Scope      = f['Detail_x002c__x0020_ChangeType_x'] || f.Scope;
     // Rich Text 필드 HTML 태그 제거
-    ['Detail','ChangeReason','Symptom','Scope','Workaround','Systems','Impact','AcctPurpose','ReqEnv'].forEach(k => {
+    ['Detail','ChangeReason','Symptom','Scope','Workaround','Systems','Impact','AcctPurpose','ReqEnv','TicketTitle'].forEach(k => {
       if (f[k]) f[k] = stripHtml(f[k]);
     });
     const sec = (t) => '<div style="margin:16px 0 8px;font-size:13px;font-weight:700;color:#1F4E79;padding:6px 10px;background:#EFF6FF;border-left:3px solid #1F4E79;border-radius:3px">' + t + '</div>';
+    // 값에 HTML 을 의도적으로 넣는 자리(배지·linkify 결과)만 row 를 쓰고,
+    // 사람이 입력한 텍스트는 rowT 로 이스케이프해서 넣는다.
+    // 예전에는 텍스트도 그대로 innerHTML 에 들어가, 붙여넣기로 태그가 섞이거나
+    // 두 번 인코딩된 값이 그 자리에서 실행될 수 있었다.
+    const rowT = (l, v, full) => row(l, escHtml(v == null ? '' : String(v)), full);
     const row = (l, v, full) => {
       const val = (v === undefined || v === null || v === '') ? '-' : v;
       return full
@@ -2148,36 +2157,36 @@ async function showDetail(requestId) {
 
     // 상태 표시는 badge-* 클래스(목록과 동일)로 통일되어 색상 변수는 더 이상 사용하지 않는다.
     let html = sec('기본 정보') +
-      row('제목', f.Title) +
-      row('신청자', f.RequesterEmail) +
+      rowT('제목', f.Title) +
+      rowT('신청자', f.RequesterEmail) +
       row('유형', typeBadge(f.TicketType)) +
       row('우선순위', priorityBadge(f.Priority)) +
       row('상태', '<span class="badge-' + (function(s){var v=(s||'대기').trim();return v.indexOf('철회')===0?'철회':(v==='승인'?'승인완료':v);})(f.Status) + '">' + (f.Status||'대기') + '</span>') +
-      row('대상 시스템', f.Systems) +
+      rowT('대상 시스템', f.Systems) +
       row('등록일', f.RequestDate ? fmtDate(f.RequestDate) : '');
 
     const t = f.TicketType;
     if (t === 'Incident' || t === 'Problem') {
       html += sec('장애/이슈 상세') +
-        (f.TicketTitle ? row('요청 제목', f.TicketTitle) : '') +
+        (f.TicketTitle ? rowT('요청 제목', f.TicketTitle) : '') +
         row('발생 일시', fmtOccurredAt(f.IncOccurredAt)) +
         row('증상 설명', linkifyTicketRefs(f.Symptom), true) +
-        row('영향 범위', f.Scope) +
-        row('임시 해결책', f.Workaround);
+        rowT('영향 범위', f.Scope) +
+        rowT('임시 해결책', f.Workaround);
     } else if (t === 'Change') {
       html += sec('변경 요청 상세') +
-        (f.TicketTitle ? row('요청 제목', f.TicketTitle) : '') +
-        row('변경 유형', f.ChangeType) +
-        row('예상 영향도', f.Impact) +
+        (f.TicketTitle ? rowT('요청 제목', f.TicketTitle) : '') +
+        rowT('변경 유형', f.ChangeType) +
+        rowT('예상 영향도', f.Impact) +
         row('변경 내용', linkifyTicketRefs(f.Detail), true) +
-        row('변경 이유', f.ChangeReason, true);
+        rowT('변경 이유', f.ChangeReason, true);
     } else if (t === 'Request') {
       html += sec('서비스 요청 상세') +
-        (f.TicketTitle ? row('요청 제목', f.TicketTitle) : '') +
-        row('요청 유형', f.ReqType) +
-        row('계정 생성 목적', f.AcctPurpose) +
-        row('권한 환경', f.ReqEnv) +
-        row('신청 기간', f.ReqFrom && f.ReqTo ? f.ReqFrom + ' ~ ' + f.ReqTo : '-') +
+        (f.TicketTitle ? rowT('요청 제목', f.TicketTitle) : '') +
+        rowT('요청 유형', f.ReqType) +
+        rowT('계정 생성 목적', f.AcctPurpose) +
+        rowT('권한 환경', f.ReqEnv) +
+        rowT('신청 기간', f.ReqFrom && f.ReqTo ? f.ReqFrom + ' ~ ' + f.ReqTo : '-') +
         row('요청 내용', linkifyTicketRefs(f.Detail), true);
     }
 
