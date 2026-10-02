@@ -2114,7 +2114,7 @@ async function exportITAdminExcel(){
       const sys = txt(f.Systems||'').split(';').map(s=>s.trim()).filter(Boolean).join(', ');
       const att = attInfo(f.AttachedFiles);
       const _pl = parseProcessLog(f[PLOG_COL]);
-      let _plText = _pl.map(l => '[' + (l.at||'') + '] ' + (l.email||l.name||'') + '\n' + (l.text||'')).join('\n\n');
+      let _plText = _pl.map(l => (l.at||'') + ' · ' + (l.name||l.email||'') + ' · ' + (l.text||'')).join('\n');   // BP Master 와 같은 요약 형식(한 의견 = 한 줄)
       if (_plText.length > 32000) _plText = _plText.slice(0, 32000) + '\n… (이하 「업무 처리 의견」 시트 참고)';   // Excel 한 칸 한도 32,767자
       return [
         _xlRank(i.id), txt(f.Title), txt(f.TicketType), txt(f.ChangeType||f.ReqType), txt(f.Priority), txt(f.Status),
@@ -2133,8 +2133,9 @@ async function exportITAdminExcel(){
       ];
     })];
     // 업무 처리 의견은 한 칸에 다 담기 어려워 별도 시트에 한 줄씩도 둔다(BP Master 와 같은 구성)
-    const plogRows = [['번호', '티켓 ID', '상태', '일시', '작성자', '내용']];
-    items.forEach(i => parseProcessLog(i.fields[PLOG_COL]).forEach(l => plogRows.push([_xlRank(i.id), txt(i.fields.Title), txt(i.fields.Status), l.at || '', l.email || l.name || '', l.text || ''])));
+    // BP Master 「업무 처리 의견」 시트와 같은 열(Type = 티켓 유형)
+    const plogRows = [['번호','Title','신청자','Type','현재 상태','회차','등록일시','등록자','등록자 이메일','의견 내용']];
+    items.forEach(i => parseProcessLog(i.fields[PLOG_COL]).forEach((l, k) => plogRows.push([_xlRank(i.id), txt(i.fields.Title), txt(i.fields.RequesterEmail), txt(i.fields.TicketType), txt(i.fields.Status), k + 1, l.at || '', l.name || '', l.email || '', l.text || ''])));
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [
@@ -2150,8 +2151,8 @@ async function exportITAdminExcel(){
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'IT Tickets');
-    const ws3 = XLSX.utils.aoa_to_sheet(plogRows.length > 1 ? plogRows : [...plogRows, ['', '', '', '', '', '내보낸 범위에 업무 처리 의견이 없습니다.']]);
-    ws3['!cols'] = [{wch:6},{wch:26},{wch:10},{wch:16},{wch:28},{wch:80}];
+    const ws3 = XLSX.utils.aoa_to_sheet(plogRows.length > 1 ? plogRows : [...plogRows, ['', '내보낸 범위에 업무 처리 의견이 없습니다.']]);
+    ws3['!cols'] = [{wch:6},{wch:24},{wch:28},{wch:10},{wch:10},{wch:6},{wch:18},{wch:14},{wch:28},{wch:60}];
     XLSX.utils.book_append_sheet(wb, ws3, '업무 처리 의견');
     XLSX.writeFile(wb, 'ITTicket_Admin_'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'.xlsx');
   }catch(e){alert('Excel 생성 실패: '+e.message);}
