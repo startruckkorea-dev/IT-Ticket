@@ -293,6 +293,22 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 .badge-진행중{background:#dbeafe;color:#1d4ed8;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
 .badge-처리중{background:#dbeafe;color:#1d4ed8;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
 .badge-철회{background:#f1f5f9;color:#64748b;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
+/* 접수됨 — 관리자가 첫 업무 처리 의견을 남긴 건(BP Master · SSC 와 같은 이름 · 색). 결재는 그대로 진행 중이다(10-02). */
+.badge-접수됨{background:#e0e7ff;color:#4338ca;border-radius:10px;padding:2px 8px;font-size:.68rem;font-weight:600}
+/* 업무 처리 의견(저장 열 ProcessLog) — 관리자 입력 · 신청자·결재자 열람. 모양은 BP Master 와 같다 */
+.plog-list{margin-bottom:10px;max-height:200px;overflow-y:auto}
+.plog-item{background:#f0f6ff;border:1px solid #c7e0f4;border-radius:6px;padding:8px 12px;margin-bottom:8px}
+.plog-date{font-size:.68rem;color:#a19f9d;margin-bottom:3px}
+.plog-by{font-size:.74rem;color:#605e5c;margin-bottom:3px}
+.plog-by b{font-weight:600;color:#0078d4}
+.plog-lbl{font-size:.74rem;color:#605e5c;margin-bottom:2px}
+.plog-text{font-size:.8rem;color:#323130;white-space:pre-wrap;word-break:break-word;padding-left:8px}
+.plog-empty{font-size:.74rem;color:#a19f9d;padding:6px 0}
+.plog-input{display:flex;gap:8px;align-items:flex-end}
+.plog-input textarea{flex:1;border:1px solid #d2d0ce;border-radius:4px;padding:8px 10px;font-size:.8rem;font-family:inherit;resize:vertical}
+.plog-input button{padding:7px 16px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:.8rem;cursor:pointer;white-space:nowrap;height:fit-content;font-family:inherit}
+.plog-input button:disabled{background:#c8c6c4;cursor:default}
+.plog-note{font-size:.74rem;color:#a19f9d;padding:8px 0}
 .ref-link{color:#0078d4;font-weight:600;text-decoration:underline;cursor:pointer}
 </style>
 </head>
@@ -681,7 +697,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="filter-bar">
         <select id="list-filter-status" onchange="renderMyList()">
           <option value="">전체 상태</option>
-          <option>대기</option><option>처리중</option><option>승인완료</option><option>반려</option><option>철회</option>
+          <option>대기</option><option>접수됨</option><option>승인완료</option><option>반려</option><option>철회</option>
         </select>
         <select id="list-filter-type" onchange="renderMyList()">
           <option value="">전체 유형</option>
@@ -725,7 +741,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
       <div class="filter-bar">
         <select id="admin-filter-status" onchange="loadAdminList()">
           <option value="">전체 상태</option>
-          <option>대기</option><option>처리중</option><option>승인완료</option><option>반려</option>
+          <option>대기</option><option>접수됨</option><option>승인완료</option><option>반려</option>
         </select>
         <select id="admin-filter-type" onchange="loadAdminList()">
           <option value="">전체 유형</option>
@@ -1914,7 +1930,7 @@ async function loadApprovalQueue() {
     const rows = mine.map(function(item, idx) {
       const f = item.fields;
       const rf = reqMap[String(f.RequestID)] || {};
-      return '<tr onclick="showDetail(' + f.RequestID + ')" style="cursor:pointer"><td style="color:#a19f9d;font-size:.72rem">' + (idx+1) + '</td><td title="' + escHtml(rf.RequesterEmail||'') + '">' + escHtml(rf.RequesterEmail||'') + '</td><td title="' + escHtml(rf.Title||'') + '">' + escHtml(rf.Title||'') + '</td><td>' + typeBadge(rf.TicketType) + '</td>' + ticketTitleCell(rf) + '<td>' + priorityBadge(rf.Priority) + '</td><td><span class="badge badge-' + (rf.Status||'대기') + '">' + (rf.Status||'') + '</span></td><td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td><td onclick="event.stopPropagation()"><button class="btn-approve" onclick="showConfirm(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> <button class="btn-reject" onclick="showConfirm(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button></td></tr>';
+      return '<tr onclick="showDetail(' + f.RequestID + ')" style="cursor:pointer"><td style="color:#a19f9d;font-size:.72rem">' + (idx+1) + '</td><td title="' + escHtml(rf.RequesterEmail||'') + '">' + escHtml(rf.RequesterEmail||'') + '</td><td title="' + escHtml(rf.Title||'') + '">' + escHtml(rf.Title||'') + '</td><td>' + typeBadge(rf.TicketType) + '</td>' + ticketTitleCell(rf) + '<td>' + priorityBadge(rf.Priority) + '</td><td><span class="badge badge-' + (f.Status||'대기') + '">' + (f.Status||'대기') + '</span></td><td>' + (rf.RequestDate ? fmtDate(rf.RequestDate) : '') + '</td><td onclick="event.stopPropagation()"><button class="btn-approve" onclick="showConfirm(' + item.id + ',\'승인\',' + f.RequestID + ')">승인</button> <button class="btn-reject" onclick="showConfirm(' + item.id + ',\'반려\',' + f.RequestID + ')">반려</button></td></tr>';
     });
     dynLoadEnd(); pgSet('appr', rows, function(r){ return r; }, '결재 대기 항목이 없습니다.', 9);
     const badge = document.getElementById('appr-badge');
@@ -2081,7 +2097,8 @@ async function exportITAdminExcel(){
       '첨부 개수','첨부 파일명',
       '1차 결재자','1차 이메일','1차 상태',
       'IT 담당자','IT 이메일','IT 상태',
-      '신청일','최종 수정일'
+      '신청일','최종 수정일',
+      '업무 처리 의견 건수','업무 처리 의견'
     ];
 
     // 번호 = 신청 순서(가장 오래된 건이 1). 내보내는 행 순서와 무관하게 목록 ID 오름차순으로 매긴다(09-10).
@@ -2096,6 +2113,9 @@ async function exportITAdminExcel(){
       // 예전에는 Detail·Impact 등 일부만 거쳐서 「대상 시스템」에 <div> 가 그대로 나갔다.
       const sys = txt(f.Systems||'').split(';').map(s=>s.trim()).filter(Boolean).join(', ');
       const att = attInfo(f.AttachedFiles);
+      const _pl = parseProcessLog(f[PLOG_COL]);
+      let _plText = _pl.map(l => '[' + (l.at||'') + '] ' + (l.email||l.name||'') + '\n' + (l.text||'')).join('\n\n');
+      if (_plText.length > 32000) _plText = _plText.slice(0, 32000) + '\n… (이하 「업무 처리 의견」 시트 참고)';   // Excel 한 칸 한도 32,767자
       return [
         _xlRank(i.id), txt(f.Title), txt(f.TicketType), txt(f.ChangeType||f.ReqType), txt(f.Priority), txt(f.Status),
         txt(f.RequesterEmail), sys, txt(f.OtherSystem),
@@ -2108,9 +2128,13 @@ async function exportITAdminExcel(){
         txt(a1.name), txt(a1.email), txt(a1.status),
         txt(a2.name), txt(a2.email), txt(a2.status),
         f.RequestDate?f.RequestDate.slice(0,10):'',
-        f.Modified?f.Modified.slice(0,10):''
+        f.Modified?f.Modified.slice(0,10):'',
+        _pl.length, _plText
       ];
     })];
+    // 업무 처리 의견은 한 칸에 다 담기 어려워 별도 시트에 한 줄씩도 둔다(BP Master 와 같은 구성)
+    const plogRows = [['번호', '티켓 ID', '상태', '일시', '작성자', '내용']];
+    items.forEach(i => parseProcessLog(i.fields[PLOG_COL]).forEach(l => plogRows.push([_xlRank(i.id), txt(i.fields.Title), txt(i.fields.Status), l.at || '', l.email || l.name || '', l.text || ''])));
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [
@@ -2121,10 +2145,14 @@ async function exportITAdminExcel(){
       {wch:9},{wch:44},
       {wch:16},{wch:28},{wch:10},
       {wch:16},{wch:28},{wch:10},
-      {wch:12},{wch:12}
+      {wch:12},{wch:12},
+      {wch:10},{wch:60}
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'IT Tickets');
+    const ws3 = XLSX.utils.aoa_to_sheet(plogRows.length > 1 ? plogRows : [...plogRows, ['', '', '', '', '', '내보낸 범위에 업무 처리 의견이 없습니다.']]);
+    ws3['!cols'] = [{wch:6},{wch:26},{wch:10},{wch:16},{wch:28},{wch:80}];
+    XLSX.utils.book_append_sheet(wb, ws3, '업무 처리 의견');
     XLSX.writeFile(wb, 'ITTicket_Admin_'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'.xlsx');
   }catch(e){alert('Excel 생성 실패: '+e.message);}
   finally{loading(false);}
@@ -2163,6 +2191,106 @@ async function loadAdminList() {
 function stripHtml(v) {
   if (!v || typeof v !== 'string') return v;
   return spText(v);
+}
+
+// ══ 업무 처리 의견 (ProcessLog · 10-02) ══════════════════════════════
+// BP Master(d5cce8b ~ b48b682) · SSC 업무 처리 의견과 같은 방식: IT_Requests 항목 한 칸(ProcessLog · 여러 줄 텍스트)에 JSON 배열로 쌓는다.
+//   [{ at:'YYYY-MM-DD HH:MM'(KST), name, email, text }]
+// 관리자 탭에서 첫 의견을 남기는 순간 신청 상태를 대기 → 접수됨 으로 바꾼다. 결재는 신청 상태가 아니라 결재행(IT_Approvals)으로
+// 움직이므로 접수됨이어도 승인 · 반려 · 다음 결재자 해제 · 최종 승인완료는 그대로 진행되고, 최종 결과가 접수됨을 덮어쓴다.
+// 결재가 끝난 건(승인완료 · 반려 · 철회)에는 추가할 수 없다. 열람은 내 티켓 · 결재함 · 관리자 · APS 상세 어디서나.
+const PLOG_COL = 'ProcessLog';
+const PLOG_MAX = 1000;
+const _PLOG_CLOSED = ['승인완료', '반려', '철회'];
+function isPlogAdmin() {
+  const me = [(user && user.email) || '', (user && user.username) || ''].map(e => e.toLowerCase()).filter(Boolean);
+  return (typeof ADMIN_EMAILS !== 'undefined' ? ADMIN_EMAILS : []).some(e => me.includes(String(e || '').toLowerCase()));
+}
+function parseProcessLog(raw) {
+  if (raw == null || raw === '') return [];
+  const tryParse = v => { try { const a = JSON.parse(v); return Array.isArray(a) ? a : null; } catch (e) { return null; } };
+  // 여러 줄 텍스트 열이 서식 있는 텍스트로 만들어져도 읽히게 껍데기를 걷어낸 판으로 한 번 더 본다
+  return tryParse(raw) || tryParse(spText(raw)) || [];
+}
+function renderProcessLogItems(logs) {
+  if (!logs || !logs.length) return '<div class="plog-empty">등록된 의견이 없습니다.</div>';
+  return logs.map(l =>
+    '<div class="plog-item">' +
+      '<div class="plog-date">' + escHtml(l.at || '') + '</div>' +
+      '<div class="plog-by">작성자: <b>' + escHtml(l.email || l.name || '') + ' (관리자)</b></div>' +
+      '<div class="plog-lbl">내용:</div>' +
+      '<div class="plog-text">' + escHtml(l.text || '') + '</div>' +
+    '</div>'
+  ).join('');
+}
+function _plogNowKst() {
+  const now = new Date(Date.now() + 9 * 3600 * 1000);
+  const p = n => String(n).padStart(2, '0');
+  return `${now.getUTCFullYear()}-${p(now.getUTCMonth()+1)}-${p(now.getUTCDate())} ${p(now.getUTCHours())}:${p(now.getUTCMinutes())}`;
+}
+// ProcessLog 열이 아직 없으면 만든다(BP Master 와 같은 방식). 목록 관리 권한이 없으면 false.
+let _plogColEnsured = false;
+async function ensureProcessLogColumn() {
+  if (_plogColEnsured) return true;
+  try {
+    const cols = await api('/sites/' + siteId + '/lists/IT_Requests/columns');
+    if (!(cols.value || []).some(c => c.name === PLOG_COL)) {
+      await api('/sites/' + siteId + '/lists/IT_Requests/columns', 'POST', { name: PLOG_COL, text: { allowMultipleLines: true, textType: 'plain' } });
+    }
+    _plogColEnsured = true;
+    return true;
+  } catch (e) { console.warn('[업무 처리 의견] ProcessLog 열 확인/생성 실패:', e.message); return false; }
+}
+async function submitProcessLog(reqId) {
+  const textEl = document.getElementById('plog-text');
+  const text = (textEl?.value || '').trim();
+  if (!text) { alert('처리 내용을 입력해 주세요.'); return; }
+  if (text.length > PLOG_MAX) { alert('처리 내용은 ' + PLOG_MAX + '자까지 입력할 수 있습니다.'); return; }
+  // 화면에서 입력칸을 숨겨도 콘솔 호출은 막지 못하므로 쓰기 직전에 다시 본다
+  if (!isPlogAdmin()) { alert('업무 처리 의견은 관리자만 등록할 수 있습니다.'); return; }
+  const btn = document.getElementById('plog-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
+  try {
+    // 최신 값으로 다시 읽고 이어 붙인다 — 다른 관리자가 먼저 남긴 의견을 덮어쓰지 않게
+    const cur = await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId + '/fields');
+    const st = String(cur.Status || '').trim();
+    if (_PLOG_CLOSED.some(c => st.indexOf(c) === 0)) {
+      showAlert('의견을 추가할 수 없습니다', '이미 결재가 끝난 신청입니다 (' + st + ').', '⚠️');
+      await showDetail(reqId);
+      return;
+    }
+    const logs = parseProcessLog(cur[PLOG_COL]);
+    logs.push({ at: _plogNowKst(), name: user.name || '', email: user.email || user.username || '', text });
+    const toAccepted = (st === '대기' || st === '');
+    const fields = { [PLOG_COL]: JSON.stringify(logs) };
+    if (toAccepted) fields.Status = '접수됨';
+    const path = '/sites/' + siteId + '/lists/IT_Requests/items/' + reqId + '/fields';
+    let statusNote = '';
+    try {
+      await api(path, 'PATCH', fields);
+    } catch (e1) {
+      if (/ProcessLog|not recognized|does not exist|존재하지/i.test(e1.message)) {
+        if (!(await ensureProcessLogColumn())) {
+          throw new Error('IT_Requests 목록에 ProcessLog 열(여러 줄 텍스트 · 일반 텍스트)이 없고, 자동으로 만들 권한도 없습니다. IT 팀에 열 추가를 요청해 주세요.');
+        }
+        await api(path, 'PATCH', fields);
+      } else if (toAccepted) {
+        // 상태 열이 선택형이라 「접수됨」 이 없으면 실패할 수 있다 — 의견만이라도 남기고 알린다
+        await api(path, 'PATCH', { [PLOG_COL]: fields[PLOG_COL] });
+        statusNote = '의견은 저장했지만 상태를 「접수됨」으로 바꾸지 못했습니다(' + e1.message + '). IT 팀에 알려 주세요.';
+      } else { throw e1; }
+    }
+    logAction('IT Ticket', '업무 처리 의견 등록', { 신청: cur.Title || ('ID-' + reqId), 상태전환: toAccepted && !statusNote ? '대기→접수됨' : '없음', 글자수: text.length });
+    allRequestsCache = [];
+    await showDetail(reqId);
+    loadAdminList();
+    if (statusNote) showAlert('일부만 저장되었습니다', statusNote, '⚠️');
+  } catch (e) {
+    alert('의견 저장 실패: ' + e.message);
+  } finally {
+    const b = document.getElementById('plog-save-btn');
+    if (b) { b.disabled = false; b.textContent = '등록'; }
+  }
 }
 
 async function showDetail(requestId) {
@@ -2212,7 +2340,7 @@ async function showDetail(requestId) {
       }).filter(Boolean).join('');
     }
 
-    let apprHtml = '';
+    let apprHtml = '', _myPendingSt = '';
     try {
       const apprData = await apiAll('/sites/' + siteId + '/lists/IT_Approvals/items?$expand=fields&$filter=fields/RequestID eq '+parseInt(requestId))
       const apprList = apprData.value.sort((a,b) => a.fields.ApprovalOrder - b.fields.ApprovalOrder);
@@ -2232,6 +2360,7 @@ async function showDetail(requestId) {
           }).join('') + '</div>';
         // 내 결재 대기 건 버튼
         const myPending = apprList.find(a => isMyAppr(a.fields.ApproverEmail) && (a.fields.Status||'').trim() === '대기');
+        _myPendingSt = myPending ? (myPending.fields.Status||'대기') : '';
         if (myPending) {
           apprHtml += '<div class="modal-action">' +
             '<button onclick="showConfirm(' + myPending.id + ',\'승인\',' + requestId + ')" class="btn-approve">✅ 승인</button>' +
@@ -2247,7 +2376,10 @@ async function showDetail(requestId) {
       rowT('신청자', f.RequesterEmail) +
       row('유형', typeBadge(f.TicketType)) +
       row('우선순위', priorityBadge(f.Priority)) +
-      row('상태', '<span class="badge-' + (function(s){var v=(s||'대기').trim();return v.indexOf('철회')===0?'철회':(v==='승인'?'승인완료':v);})(f.Status) + '">' + (f.Status||'대기') + '</span>') +
+      // 결재함에서 열면 결재자에게는 내 단계 상태(대기)를 보여 준다 — 신청이 접수됨이어도 헷갈리지 않게(BP Master 와 같은 규칙)
+      row('상태', (_activeTab === 'approval' && _myPendingSt)
+        ? '<span class="badge-' + _myPendingSt + '">' + escHtml(_myPendingSt) + '</span>'
+        : '<span class="badge-' + (function(s){var v=(s||'대기').trim();return v.indexOf('철회')===0?'철회':(v==='승인'?'승인완료':v);})(f.Status) + '">' + (f.Status||'대기') + '</span>') +
       rowT('대상 시스템', f.Systems) +
       row('등록일', f.RequestDate ? fmtDate(f.RequestDate) : '');
 
@@ -2276,7 +2408,25 @@ async function showDetail(requestId) {
         row('요청 내용', linkifyTicketRefs(f.Detail), true);
     }
 
-    html += sec('첨부파일') + filesHtml + apprHtml;
+    // 업무 처리 의견 — 입력은 관리자 탭에서 연 관리자만, 결재가 끝난 건(승인완료 · 반려 · 철회)은 열람만(BP Master · SSC 와 같은 규칙).
+    const _plogs = parseProcessLog(f[PLOG_COL]);
+    const _plogClosed = _PLOG_CLOSED.some(c => String(f.Status||'').trim().indexOf(c) === 0);
+    const _plogAdmin = isPlogAdmin();
+    const _plogCanWrite = _plogAdmin && _activeTab === 'admin' && !_plogClosed;
+    const plogHtml =
+      sec('업무 처리 의견 <span style="font-size:.7rem;font-weight:400;color:#a19f9d">(관리자만 입력 가능 · 결재 진행 중인 건에 한함)</span>') +
+      '<div class="plog-list" id="plog-list">' + renderProcessLogItems(_plogs) + '</div>' +
+      (_plogCanWrite
+        ? '<div class="pdf-exclude"><div class="plog-input">' +
+            '<textarea id="plog-text" rows="2" maxlength="' + PLOG_MAX + '" placeholder="' +
+              (String(f.Status||'').trim() === '대기' || !String(f.Status||'').trim() ? '처리 관련 의견을 입력해주세요... (첫 등록 시 「접수됨」 전환)' : '처리 관련 의견을 입력해주세요...') +
+            '"></textarea>' +
+            '<button id="plog-save-btn" onclick="submitProcessLog(' + requestId + ')">등록</button>' +
+          '</div></div>'
+        : (_plogAdmin && _activeTab === 'admin' && _plogClosed
+            ? '<div class="plog-note pdf-exclude">이미 결재가 끝난 신청은 의견을 입력할 수 없습니다.</div>' : ''));
+
+    html += sec('첨부파일') + filesHtml + plogHtml + apprHtml;
     document.getElementById('modal-content').innerHTML = html;
     document.getElementById('detail-modal').style.display = 'flex';
     window._currentTicketId = requestId;
@@ -2334,7 +2484,7 @@ async function exportTicketPdf() {
     const _ds = '출력일시: ' + now.toLocaleDateString('ko-KR', {timeZone:'Asia/Seoul'}) + ' ' + now.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit', timeZone:'Asia/Seoul'});
 
     // 승인/반려 버튼 임시 숨김
-    const procBtns = contentEl.querySelectorAll('.btn-approve, .btn-reject');
+    const procBtns = contentEl.querySelectorAll('.btn-approve, .btn-reject, .pdf-exclude');
     procBtns.forEach(b => b.style.display = 'none');
 
     const cvs = await html2canvas(contentEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:'#fff', scrollY:0, windowWidth:700});
@@ -2880,7 +3030,7 @@ async function withdrawRequest(e, reqId, aprList, reqList) {
 
 function _wdBtn(itemId, aprList, reqList, status) {
   const st = (status && status.Value ? status.Value : status || '').trim();
-  if (st !== '대기') return '';
+  if (st !== '대기' && st !== '접수됨') return '';
   return '<button onclick="withdrawRequest(event,' + itemId + ',\'' + aprList + '\',\'' + reqList + '\')" '
        + 'style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 12px;font-size:.75rem;line-height:16px;cursor:pointer;font-family:inherit;white-space:nowrap;">Withdraw</button>';
 }
