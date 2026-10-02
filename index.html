@@ -425,7 +425,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 
       <div class="section-title">4. 결재자 지정</div>
       <!-- 결재 라인 미리보기 · 결재자 블록 — ACC Voucher 와 같은 모양(09-30) -->
-      <div class="appr-line-preview">
+      <div class="appr-line-preview" id="inc-line-preview">
         <div class="appr-line-title">📋 결재 라인 (IT Ticket 기준 자동 구성)</div>
         <div class="appr-line-steps"><span class="line-step"><span class="line-step-badge">1차</span><span class="line-step-label">Line Manager (팀장)</span><span class="line-arrow">→</span></span><span class="line-step"><span class="line-step-badge fixed">2차</span><span class="line-step-label">IT 담당자</span></span></div>
       </div>
@@ -441,8 +441,10 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
           <input type="email" id="inc-a1-email" readonly placeholder="이메일">
         </div>
       </div>
+      <!-- 추가 결재자(10-02) — 1차와 IT 담당자 사이에만, 최대 3명. itRenderApprLine 이 그린다 -->
+      <div id="inc-extra-area"></div>
       <div class="appr-block appr-fixed">
-        <div class="appr-block-title">2차 결재자<span class="appr-tag auto">자동 지정</span> <span class="hint">— IT 담당자</span></div>
+        <div class="appr-block-title"><span id="inc-it-step">2</span>차 결재자<span class="appr-tag auto">자동 지정</span> <span class="hint">— IT 담당자</span></div>
         <div class="appr-info">
           <input type="text" id="cfg-it-mgr-name2" value="" readonly placeholder="이름">
           <input type="email" id="cfg-it-mgr-email2" value="" readonly placeholder="이메일">
@@ -640,7 +642,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
 
       <div class="section-title">4. 결재자 지정</div>
       <!-- 결재 라인 미리보기 · 결재자 블록 — ACC Voucher 와 같은 모양(09-30) -->
-      <div class="appr-line-preview">
+      <div class="appr-line-preview" id="chg-line-preview">
         <div class="appr-line-title">📋 결재 라인 (IT Ticket 기준 자동 구성)</div>
         <div class="appr-line-steps"><span class="line-step"><span class="line-step-badge">1차</span><span class="line-step-label">Line Manager (팀장)</span><span class="line-arrow">→</span></span><span class="line-step"><span class="line-step-badge fixed">2차</span><span class="line-step-label">IT 담당자</span></span></div>
       </div>
@@ -656,8 +658,10 @@ body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; min-height: 100
           <input type="email" id="chg-a1-email" readonly placeholder="이메일">
         </div>
       </div>
+      <!-- 추가 결재자(10-02) — 1차와 IT 담당자 사이에만, 최대 3명. itRenderApprLine 이 그린다 -->
+      <div id="chg-extra-area"></div>
       <div class="appr-block appr-fixed">
-        <div class="appr-block-title">2차 결재자<span class="appr-tag auto">자동 지정</span> <span class="hint">— IT 담당자</span></div>
+        <div class="appr-block-title"><span id="chg-it-step">2</span>차 결재자<span class="appr-tag auto">자동 지정</span> <span class="hint">— IT 담당자</span></div>
         <div class="appr-info">
           <input type="text" id="cfg-it-mgr-name1" value="" readonly placeholder="이름">
           <input type="email" id="cfg-it-mgr-email1" value="" readonly placeholder="이메일">
@@ -1415,7 +1419,8 @@ async function loadEmployees() {
       if (el) el.innerHTML = opts;
     });
     applyFlexApprovers();   // 1차 Line Manager — Flex 연동(10-01)
-  } catch(e) { console.warn('직원 데이터 로드 실패:', e); applyFlexApprovers(); }   // 못 읽었으면 직접 선택 칸을 연다
+    ['inc','chg'].forEach(itRenderApprLine);   // 추가 결재자 칸 · 결재 라인 미리보기(10-02)
+  } catch(e) { console.warn('직원 데이터 로드 실패:', e); applyFlexApprovers(); ['inc','chg'].forEach(itRenderApprLine); }   // 못 읽었으면 직접 선택 칸을 연다
 }
 
 function onDeptChange(idx, prefix) {
@@ -1501,6 +1506,111 @@ function renderFiles(prefix) {
   ).join('') + (store.length ? '<div style="font-size:11px;color:#605e5c;text-align:right;margin-top:4px">총 ' + totalMB.toFixed(1) + ' MB / 10 MB</div>' : '');
 }
 
+/* ══ 추가 결재자 (10-02 · ACC Voucher 「Adding an Additional Approver」 와 같은 방식) ══
+   시스템 권한을 줄 때 그 시스템 Owner 나 지정 담당자의 별도 · 추가 승인이 필요한 경우가 있어,
+   1차(Line Manager)와 IT 담당자 사이에 결재자를 최대 3명까지 끼워 넣을 수 있게 한다.
+   · 값은 DOM 이 아니라 itExtra[prefix] 배열에 둔다 — 다시 그려도 고른 부서 · 팀 · 직원이 유지된다.
+   · 결재행 역할은 ACC Voucher 와 같은 「Extra Approver」(APS · 메일에서 별도 매핑 없이 읽힘), 차수는 1차 다음부터 차례로,
+     IT 담당자는 맨 뒤로 밀린다. 결재 진행은 기존과 같다(다음 「대기(잠김)」 를 차수 순으로 푼다). */
+const IT_MAX_EXTRA = 3;
+const IT_EXTRA_ROLE = 'Extra Approver';
+const itExtra = { inc: [], chg: [] };
+const _itHelpOpen = { inc: false, chg: false };
+let _itExSeq = 0;
+function itRenderApprLine(p) {
+  const list = itExtra[p] || [];
+  const prev = document.getElementById(p + '-line-preview');
+  if (prev) {
+    const steps = [{ label: 'Line Manager (팀장)', cls: '' }]
+      .concat(list.map(x => ({ label: x.name ? escHtml(x.name) + ' (추가)' : '추가 결재자 (미지정)', cls: 'extra' })))
+      .concat([{ label: 'IT 담당자', cls: 'fixed' }]);
+    prev.innerHTML =
+      '<div class="appr-line-title">📋 결재 라인 (IT Ticket 기준 자동 구성)</div>' +
+      '<div class="appr-line-steps">' + steps.map((st, i) =>
+        '<span class="line-step"><span class="line-step-badge ' + st.cls + '">' + (i + 1) + '차</span><span class="line-step-label">' + st.label + '</span>' +
+        (i < steps.length - 1 ? '<span class="line-arrow">→</span>' : '') + '</span>').join('') + '</div>' +
+      '<details class="appr-help"' + (_itHelpOpen[p] ? ' open' : '') + ' ontoggle="_itHelpOpen[\'' + p + '\']=this.open">' +
+        '<summary><span class="chev">▶</span>Adding an Additional Approver<span class="used">' + list.length + ' of ' + IT_MAX_EXTRA + ' used</span></summary>' +
+        '<div class="appr-help-body">' +
+          '<div style="margin-bottom:5px">Some requests — especially those that grant access to a system — may need separate or additional approval from the system owner or a designated contact. ' +
+          'In that case, click the dashed <span style="color:#0078d4;font-weight:700">＋ 결재자 추가</span> line below to add an approver before the IT step.</div>' +
+          '<table>' +
+            '<tr><td class="k">Where</td><td>Between the Line Manager (1st step) and the IT Manager (final step) only.</td></tr>' +
+            '<tr><td class="k">How</td><td>Select Department → Team → Employee.</td></tr>' +
+            '<tr><td class="k">Order</td><td>Approval runs top to bottom. The IT step moves down by one for each approver added, and each approver is notified only after the previous step is approved.</td></tr>' +
+            '<tr><td class="k">Scope</td><td>Applies to this ticket only. Use <span style="color:#a4262c;font-weight:700">✕ 삭제</span> to remove it before submitting.</td></tr>' +
+            '<tr><td class="k">Limit</td><td>Up to <b>' + IT_MAX_EXTRA + '</b> additional approvers per ticket. Once the limit is reached, the dashed line is disabled until you remove one.</td></tr>' +
+          '</table>' +
+        '</div>' +
+      '</details>';
+  }
+  const area = document.getElementById(p + '-extra-area');
+  if (area) {
+    const depts = [...new Set(employeeData.map(e => e.dept))].sort();
+    const deptOpts = depts.map(d => '<option value="' + escHtml(d) + '">' + escHtml(d) + '</option>').join('');
+    const full = list.length >= IT_MAX_EXTRA;
+    area.innerHTML = list.map((x, i) =>
+      '<div class="appr-block appr-extra">' +
+        '<div class="appr-block-title">' + (i + 2) + '차 결재자 <span class="req-mark">*</span><span class="appr-tag extra">추가 지정</span> <span class="hint">— 시스템 Owner · 추가 승인</span>' +
+          '<span class="btn-exdel" onclick="itExDel(\'' + p + '\',\'' + x.uid + '\')">✕ 삭제</span></div>' +
+        '<div class="appr-select-row">' +
+          '<select id="' + x.uid + '-dept" onchange="itExDept(\'' + p + '\',\'' + x.uid + '\')"><option value="">부서</option>' + deptOpts + '</select>' +
+          '<select id="' + x.uid + '-team" onchange="itExTeam(\'' + p + '\',\'' + x.uid + '\')" disabled><option value="">팀</option></select>' +
+          '<select id="' + x.uid + '-person" onchange="itExPerson(\'' + p + '\',\'' + x.uid + '\')" disabled><option value="">직원 선택</option></select>' +
+        '</div>' +
+        '<div class="appr-info">' +
+          '<input type="text" id="' + x.uid + '-name" value="' + escHtml(x.name) + '" readonly placeholder="이름">' +
+          '<input type="email" id="' + x.uid + '-email" value="' + escHtml(x.email) + '" readonly placeholder="이메일">' +
+        '</div></div>').join('') +
+      (full
+        ? '<div class="appr-insert is-full" title="추가 결재자는 최대 ' + IT_MAX_EXTRA + '명까지 지정할 수 있습니다"><span class="appr-insert-line"></span><span class="appr-insert-btn">Maximum ' + IT_MAX_EXTRA + ' reached</span><span class="appr-insert-line"></span></div>'
+        : '<div class="appr-insert" onclick="itExAdd(\'' + p + '\')" title="IT 담당자 앞에 결재자 추가"><span class="appr-insert-line"></span><span class="appr-insert-btn"><span class="appr-insert-plus">+</span> 결재자 추가</span><span class="appr-insert-line"></span></div>');
+    // 다시 그린 뒤 보관해 둔 부서 → 팀 → 직원 선택을 되살린다
+    list.forEach(x => {
+      const d = document.getElementById(x.uid + '-dept'), t = document.getElementById(x.uid + '-team'), pe = document.getElementById(x.uid + '-person');
+      if (!d || !t || !pe || !x.dept) return;
+      d.value = x.dept; _itFillTeams(x.dept, t); t.disabled = false;
+      if (!x.team) return;
+      t.value = x.team; _itFillPeople(x.dept, x.team, pe); pe.disabled = false;
+      if (x.email) pe.value = x.email;
+    });
+  }
+  const st = document.getElementById(p + '-it-step');
+  if (st) st.textContent = String(2 + list.length);
+}
+function _itFillTeams(dept, sel) {
+  const teams = [...new Set(employeeData.filter(e => e.dept === dept).map(e => e.team))].sort();
+  sel.innerHTML = '<option value="">팀</option>' + teams.map(t => '<option value="' + escHtml(t) + '">' + escHtml(t) + '</option>').join('');
+}
+function _itFillPeople(dept, team, sel) {
+  const people = employeeData.filter(e => e.dept === dept && e.team === team);
+  sel.innerHTML = '<option value="">직원 선택</option>' + people.map(e => '<option value="' + escHtml(e.email) + '">' + escHtml(e.name) + '</option>').join('');
+}
+function _itEx(p, uid) { return (itExtra[p] || []).find(x => x.uid === uid); }
+function itExAdd(p) {
+  if ((itExtra[p] || []).length >= IT_MAX_EXTRA) return;
+  itExtra[p].push({ uid: 'itex' + (++_itExSeq), dept: '', team: '', name: '', email: '' });
+  itRenderApprLine(p);
+}
+function itExDel(p, uid) { itExtra[p] = (itExtra[p] || []).filter(x => x.uid !== uid); itRenderApprLine(p); }
+function itExDept(p, uid) {
+  const x = _itEx(p, uid); if (!x) return;
+  x.dept = document.getElementById(uid + '-dept').value; x.team = ''; x.name = ''; x.email = '';
+  itRenderApprLine(p);
+}
+function itExTeam(p, uid) {
+  const x = _itEx(p, uid); if (!x) return;
+  x.team = document.getElementById(uid + '-team').value; x.name = ''; x.email = '';
+  itRenderApprLine(p);
+}
+function itExPerson(p, uid) {
+  const x = _itEx(p, uid); if (!x) return;
+  const email = document.getElementById(uid + '-person').value;
+  const e = employeeData.find(r => r.email === email);
+  x.email = e ? e.email : ''; x.name = e ? e.name : '';
+  itRenderApprLine(p);
+}
+
 // ── Reset ──
 function resetForm(prefix) {
   if (prefix === 'inc') {
@@ -1523,6 +1633,7 @@ function resetForm(prefix) {
     onChangeTypeChange();
   }
   applyFlexApprovers();   // Flex 연동 결재자는 비운 뒤 다시 채운다(10-01)
+  itExtra[prefix] = []; itRenderApprLine(prefix);   // 추가 결재자도 비운다(10-02)
 }
 
 // ── Submit ──
@@ -1596,6 +1707,9 @@ async function submitTicket(prefix) {
   if (!priority) return alert('우선순위를 선택해주세요.');
   if (!title) return alert('제목을 입력해주세요.');
   if (!a1email) return alert('1차 결재자(Line Manager)를 지정해주세요.');
+  const _exList = (itExtra[prefix] || []).slice();
+  const _exMiss = _exList.findIndex(x => !x.email);
+  if (_exMiss >= 0) return alert((_exMiss + 2) + '차 추가 결재자를 지정하거나 「✕ 삭제」로 지워 주세요.');
 
   let detail = '';
   if (isInc) {
@@ -1731,11 +1845,12 @@ async function submitTicket(prefix) {
       } catch(e) { console.error('Drive error:', e); }
     }
 
-    // 결재자 등록: 1차 결재자(Line Manager) → IT담당자 순
+    // 결재자 등록: 1차 결재자(Line Manager) → 추가 결재자(있으면, 10-02) → IT담당자 순
     const approvers = [
       { name: document.getElementById(prefix + '-a1-name').value, email: a1email, role: '1차결재자', order: 1 },
-      { name: IT_MANAGER.name, email: IT_MANAGER.email, role: 'IT담당자', order: 2 },
     ];
+    _exList.forEach((x, i) => approvers.push({ name: x.name, email: x.email, role: IT_EXTRA_ROLE, order: 2 + i }));
+    approvers.push({ name: IT_MANAGER.name, email: IT_MANAGER.email, role: 'IT담당자', order: 2 + _exList.length });
 
     // 결재행은 언제나 원래 결재자로 만든다(09-14 A안). 대리는 결재함 판정에서 처리하고, 기간이 끝나면 자동 복귀한다.
     for (const a of approvers) {
@@ -2097,6 +2212,7 @@ async function exportITAdminExcel(){
       '첨부 개수','첨부 파일명',
       '1차 결재자','1차 이메일','1차 상태',
       'IT 담당자','IT 이메일','IT 상태',
+      '추가 결재자',
       '신청일','최종 수정일',
       '업무 처리 의견 건수','업무 처리 의견'
     ];
@@ -2127,6 +2243,7 @@ async function exportITAdminExcel(){
         att.n, att.names,
         txt(a1.name), txt(a1.email), txt(a1.status),
         txt(a2.name), txt(a2.email), txt(a2.status),
+        al.filter(a => String(a.role||'').indexOf(IT_EXTRA_ROLE) === 0).map(a => a.order + '차 ' + (a.name||'') + ' <' + (a.email||'') + '> (' + (a.status||'') + ')').join('\n'),
         f.RequestDate?f.RequestDate.slice(0,10):'',
         f.Modified?f.Modified.slice(0,10):'',
         _pl.length, _plText
@@ -2146,6 +2263,7 @@ async function exportITAdminExcel(){
       {wch:9},{wch:44},
       {wch:16},{wch:28},{wch:10},
       {wch:16},{wch:28},{wch:10},
+      {wch:44},
       {wch:12},{wch:12},
       {wch:10},{wch:60}
     ];
@@ -3192,6 +3310,32 @@ function linkifyTicketRefs(text) {
 .appr-tag.flex{color:#0b5fa5;background:#e1f0ff}
 .appr-block.appr-flex .appr-block-title .req-mark{display:none}   /* Flex 연동으로 채워진 칸은 고를 게 없으니 필수(*) 표시를 뺀다 — 직접 선택으로 되돌아오면 다시 보인다(10-01) */
 .flex-note{font-size:11px;color:#a4262c;background:#fdf0f1;border:1px solid #f1c0c4;border-radius:6px;padding:6px 10px;margin:0 0 8px;line-height:1.5}
+/* 추가 결재자(10-02) — ACC Voucher 와 같은 삽입선 · 접이식 안내 · 노란 블록 */
+.appr-insert{display:flex;align-items:center;gap:10px;margin:2px 0 6px;padding:5px 2px;cursor:pointer;border-radius:6px;transition:background .12s ease}
+.appr-insert-line{flex:1;height:0;border-top:2px dashed #b9c6d6;transition:border-color .12s ease}
+.appr-insert-btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;background:#fff;color:#0078d4;border:1.5px dashed #7fb4e0;border-radius:14px;padding:3px 12px;font-size:11px;font-weight:700;letter-spacing:.2px;transition:all .12s ease}
+.appr-insert-plus{font-size:14px;line-height:1;font-weight:800}
+.appr-insert:not(.is-full):hover{background:#f0f6ff}
+.appr-insert:not(.is-full):hover .appr-insert-line{border-top-color:#0078d4}
+.appr-insert:not(.is-full):hover .appr-insert-btn{background:#0078d4;color:#fff;border-color:#0078d4;border-style:solid}
+.appr-insert.is-full{cursor:default}
+.appr-insert.is-full .appr-insert-line{border-top-color:#e1e1e1}
+.appr-insert.is-full .appr-insert-btn{color:#a19f9d;border-color:#dcdcdc;border-style:solid;font-weight:600}
+.appr-help{margin-top:9px;padding-top:8px;border-top:1px dashed #c7e0f4}
+.appr-help>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#0b5fa5;user-select:none;padding:1px 0}
+.appr-help>summary::-webkit-details-marker{display:none}
+.appr-help>summary:hover{text-decoration:underline}
+.appr-help .chev{font-size:9px;line-height:1;transition:transform .15s ease;display:inline-block}
+.appr-help[open] .chev{transform:rotate(90deg)}
+.appr-help .used{margin-left:auto;font-weight:600;color:#8a6116;background:#fdf6e3;border:1px solid #f0d9a0;border-radius:9px;padding:1px 8px;font-size:10px}
+.appr-help-body{margin-top:7px;font-size:11px;line-height:1.55;color:#605e5c}
+.appr-help-body table{width:100%;border-collapse:collapse;font-size:11px;line-height:1.5}
+.appr-help-body td{padding:4px 8px;border-bottom:1px solid #dbe7f3;vertical-align:top}
+.appr-help-body td.k{padding:4px 10px 4px 0;white-space:nowrap;font-weight:700;color:#0b5fa5}
+.appr-help-body tr:last-child td{border-bottom:none}
+.appr-block.appr-extra{background:#fffdf5;border-color:#e8cf8f;border-left:3px solid #d9a41a}
+.btn-exdel{float:right;background:#fff;color:#a4262c;border:1px solid #e6b3b3;border-radius:5px;padding:3px 16px;font-size:10px;font-weight:600;cursor:pointer;line-height:1.4}
+.btn-exdel:hover{background:#a4262c;color:#fff;border-color:#a4262c}
 </style>
 </body>
 </html>
