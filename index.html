@@ -332,10 +332,19 @@ html, * { scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; background-clip: padding-box; }
 </style>
 <style id="aps-mobile">
-/* APS 모바일(10-09 · aps-mobile) — 767px 이하 전용. 웹 화면 무변경 */
+/* APS 모바일(10-09 · 10-10 2차 · aps-mobile) — 767px 이하 전용. 웹 화면 무변경 */
 /* IT-Ticket: 넘침은 없어 다듬기 위주 — .tabs 가 두 번 정의돼(뒤쪽 wrap 이 이김) 2줄로 접히던 탭을 한 줄 스크롤로, 상세 라벨 130px → 92px.
    기존 640px 규칙(form-row 1열 · sys-grid 2열 · 결재 블록 · 헤더 세로)은 그대로 두고, body 안 style 블록(헤더 V3)과 겹치는 곳은 선택자를 한 단계 높였다. */
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
+  /* ── iPhone(Safari) · Galaxy 대비 방어(10-10) — 글자 자동 확대 끔, 칸이 부모 폭을 넘지 않게, iOS 날짜 칸 높이·정렬 고정 ── */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  input, select, textarea, button { max-width: 100%; box-sizing: border-box; }
+  input[type=date], input[type=time], input[type=month], input[type=datetime-local] { min-width: 0; }
+  @supports (-webkit-touch-callout: none) {
+    input[type=date], input[type=time], input[type=month], input[type=datetime-local] { -webkit-appearance: none; appearance: none; display: block; min-height: 40px; line-height: normal; text-align: left; }
+    input::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
+  }
+
   /* ── 로그인 ── 카드 좌우 12px 여백, 하단 안내 띠는 카드 아래 흐름으로(겹침 없음), 로그인 전엔 앱 footer 숨김 */
   #login-screen { flex-direction: column; padding: 24px 12px 0; box-sizing: border-box; }
   #login-screen .login-card { margin: auto 0; padding: 40px 24px 28px; border-radius: 16px; }
@@ -360,7 +369,11 @@ html, * { scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
   #app .tab { flex: none; white-space: nowrap; min-height: 42px; padding: 8px 12px; }
 
   /* ── 입력 글자 16px(iOS 자동 확대 방지) — 날짜 · 필터 · 확인 창 입력은 인라인 글자 크기라 !important ── */
-  input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea { font-size: 16px !important; }
+  /* 상세(#modal-content) 안 처리 내역 입력은 PDF 700px 재렌더에 들어가므로 699px 이하에서만 16px(10-10) */
+  input:not([type=checkbox]):not([type=radio]):not([type=file]):not(#modal-content *), select:not(#modal-content *), textarea:not(#modal-content *) { font-size: 16px !important; }
+  @media (max-width: 699px) {
+    #modal-content input:not([type=checkbox]):not([type=radio]):not([type=file]), #modal-content select, #modal-content textarea { font-size: 16px !important; }
+  }
 
   /* ── 신청서 ── 입력 폭 100%, 권한 신청 기간 두 날짜는 칸 안에서 줄어들게, 시스템 체크 칸은 긴 이름 줄바꿈, 단추 줄 2열 */
   #app .form-group > input, #app .form-group > select, #app .form-group > textarea { width: 100%; min-width: 0; padding: 9px 10px; }
@@ -371,7 +384,17 @@ html, * { scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
   #app .file-area { padding: 14px 12px; }
   #app .file-item { gap: 8px; }
   #app .file-item > span, #app .file-item > div { min-width: 0; overflow-wrap: anywhere; }
+  #app .file-item > button { flex: none; min-width: 32px; min-height: 32px; font-size: 16px; }   /* 첨부 지우기 × 8px → 32px 터치(10-10) */
   #app .appr-block { padding: 12px; }
+  /* 추가 결재자 블록 — 「✕ 삭제」(float:right)가 두 줄로 접힌 제목 아래로 흘러 부서 · 팀 · 직원 선택 칸을 243px 로 좁히던 뒤틀림을 제목 안에 가둔다(10-10) */
+  #app .appr-block.appr-extra .appr-block-title { display: flow-root; }
+  /* 접힌 「Adding an Additional Approver」 안내 — 브라우저가 이미 그리지 않는 내용을 display:none 으로 명시(화면 변화 없음).
+     접힌 details 안 글자가 결재자 칸 위에 있는 것으로 잡히던 탐지기 오탐 정리(10-10) */
+  #app .appr-help:not([open]) > .appr-help-body { display: none; }
+  #app .appr-block.appr-extra .btn-exdel { margin-left: 8px; padding: 5px 14px; }
+  /* 같은 줄 · 같은 열의 입력 높이 맞춤 — 선택(42 · 38)을 입력칸(40 · 36)과 같게 */
+  #app .form-group > select { height: 40px; }
+  #app .appr-select-row select, #app .appr-info input { height: 36px; }
   #app .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
   #app .btn-row > button { width: 100%; padding: 12px 10px; border-radius: 8px; }
 
@@ -382,18 +405,24 @@ html, * { scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
   #tab-list .list-table { min-width: 1000px; }
   #tab-approval .list-table, #tab-admin .list-table { min-width: 1040px; }
   #app .tbl-scroll { -webkit-overflow-scrolling: touch; }
+  /* 빈 결과 · 불러오는 중(한 칸짜리 줄)일 때는 머리줄을 접고 표를 화면 폭으로 — 넓힌 표 가운데에 있던 「…없습니다」 안내가 화면 밖이라 빈 표로 보이던 것(SCC 와 같은 방식, 10-10) */
+  #app .list-table:has(> tbody > tr:only-child > td[colspan]:only-child) { min-width: 0; }
+  #app .list-table:has(> tbody > tr:only-child > td[colspan]:only-child) > thead { display: none; }
 
-  /* ── 상세 모달 ── 좌우 10px · 높이 90% · 안쪽 스크롤, 라벨 130px → 92px, × 와 PDF 단추가 겹치지 않게 */
-  #detail-modal .modal-box { width: calc(100% - 20px); max-width: none; max-height: 90vh; max-height: 90dvh; padding: 18px 16px 20px; -webkit-overflow-scrolling: touch; }
-  #detail-modal .modal-close { top: 10px; right: 10px; padding: 4px 6px; }
-  #detail-modal .modal-box > .modal-close + div { margin-right: 26px; }
-  #detail-modal .modal-title { font-size: 15px; }
-  #detail-modal .modal-label { width: 92px; min-width: 92px; padding-right: 8px; }
-  #detail-modal .modal-value { min-width: 0; }
-  #detail-modal .modal-action { margin-top: 18px; }
-  #detail-modal .plog-input { flex-wrap: wrap; }
-  #detail-modal .plog-input textarea { flex: 1 1 100%; }
-  #detail-modal .plog-input button { flex: 1 1 100%; padding: 10px 16px; }
+  /* ── 상세 모달 ── 좌우 10px · 높이 90% · 안쪽 스크롤, 라벨 130px → 92px, × 와 PDF 단추가 겹치지 않게.
+     PDF 출력은 html2canvas windowWidth:700 으로 상세를 다시 그리므로 699px 이하에서만 적용(PDF 배치 = 웹과 같게, 10-10) */
+  @media (max-width: 699px) {
+    #detail-modal .modal-box { width: calc(100% - 20px); max-width: none; max-height: 90vh; max-height: 90dvh; padding: 18px 16px 20px; -webkit-overflow-scrolling: touch; }
+    #detail-modal .modal-close { top: 10px; right: 10px; padding: 4px 6px; }
+    #detail-modal .modal-box > .modal-close + div { margin-right: 26px; }
+    #detail-modal .modal-title { font-size: 15px; }
+    #detail-modal .modal-label { width: 92px; min-width: 92px; padding-right: 8px; }
+    #detail-modal .modal-value { min-width: 0; }
+    #detail-modal .modal-action { margin-top: 18px; }
+    #detail-modal .plog-input { flex-wrap: wrap; }
+    #detail-modal .plog-input textarea { flex: 1 1 100%; }
+    #detail-modal .plog-input button { flex: 1 1 100%; padding: 10px 16px; }
+  }
 
   /* ── 확인 · 안내 · 권한 없음 팝업 ── 화면 안에, 단추는 꽉 채움 */
   #confirm-modal > div { width: calc(100% - 20px) !important; padding: 22px 18px 18px !important; }
