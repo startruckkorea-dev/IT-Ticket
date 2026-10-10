@@ -3123,8 +3123,11 @@ async function exportTicketPdf() {
     a.download = fileName;
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    // 출력 기록(10-10) — 파일을 내려받은 뒤. logAction 은 기다리지 않는 기록이라 출력이 늦어지지 않는다(실패해도 콘솔 경고만)
+    try { logAction('IT Ticket', 'PDF 출력', { 신청: (f && f.Title) || '', id: String(window._currentTicketId || ''), 제목: spText((f && f.TicketTitle) || '').slice(0, 200), 상태: (f && f.Status) || '', 종류: '티켓 상세', 파일: fileName }); } catch (_le) {}
 
   } catch(e) {
+    try { const _f = window._currentTicketFields || {}; logAction('IT Ticket', 'PDF 출력 실패', { 신청: _f.Title || '', id: String(window._currentTicketId || ''), 종류: '티켓 상세', 오류: String((e && e.message) || e).slice(0, 300) }); } catch (_le) {}
     alert('PDF 생성 오류: ' + e.message);
     console.error(e);
   } finally {
