@@ -1330,12 +1330,39 @@ function logAction(systemName, action, detail) {
         timestampKST: `${dateStr} ${p(now.getUTCHours())}:${p(now.getUTCMinutes())}:${p(now.getUTCSeconds())}`,
         user: rawUser, system: systemName, action, detail: detail || {}
       });
-      await fetch(GRAPH + '/drives/' + driveId + '/root:' + path + ':/content', {
+      const _lr = await fetch(GRAPH + '/drives/' + driveId + '/root:' + path + ':/content', {
         method: 'PUT', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body
       });
+      // 저장이 거부돼도(403 · 429 · 5xx) 흔적이 없던 것 — APS(10-10)처럼 콘솔에 경고만 남긴다(10-15). 원 기능엔 영향 없음
+      if (_lr && !_lr.ok) console.warn('[Log] 기록 실패(무시됨, 원 기능엔 영향 없음): HTTP ' + _lr.status + ' —', systemName, action);
     } catch(e) { console.warn('[Log] 기록 실패(무시됨):', e.message); }
   })();
 }
+/* ══ 데이터 변경 기록(10-15) ══
+   티켓 등록(상신) · 결재 승인 · 반려 · 철회(이 화면의 통합 결재함에서 처리한 다른 시스템 결재 포함)를 위 logAction 으로 Logging_data 에 남긴다.
+   action 이름 · detail 모양은 APS 통합 결재함(Logging_data/APS 「결재 승인」 · 「결재 반려」)에 맞춘다 —
+   신청번호 · 제목 · 결과 · 차수 · 결재자 · 처리자 · 대리 · 역할 · 의견 글자 수(의견 원문 · 금액 · 계좌 · 연락처 같은 개인정보는 넣지 않는다).
+   IT 계정 제외 규칙(10-01, IT Manager · IT system service)은 logAction 안에서 그대로 적용된다(감사 예외를 두지 않는다 — 10-15 결정).
+   실제 저장(Graph 쓰기)이 끝난 뒤에만 부르고 기다리지 않는다. detail 을 만들다 오류가 나도 원 기능으로 번지지 않게 감싼다.
+   APS 통합 결재함에서 처리한 결재는 APS 가 목록에 직접 써서 이 화면 코드를 거치지 않는다 — 같은 결재가 두 번 남지 않는다. */
+function logChange(systemName, action, mk) {
+  try { logAction(systemName, action, typeof mk === 'function' ? mk() : (mk || {})); }
+  catch (e) { console.warn('[Log] 기록 생략(원 기능엔 영향 없음):', action, e && e.message); }
+}
+function logAprDetail(f, extra) {   // 결재행 fields(처리 전 값) → APS 와 같은 차수 · 결재자 · 처리자 · 대리 · 역할
+  f = f || {};
+  const orig = String(f.ApproverEmail || '');
+  let dg = null; try { dg = (typeof aacDelegatorOf === 'function') ? aacDelegatorOf(orig) : null; } catch (e) {}
+  return Object.assign({
+    차수: f.ApprovalOrder == null ? '' : f.ApprovalOrder,
+    결재자: orig,
+    처리자: String((typeof user !== 'undefined' && user && (user.email || user.username)) || ''),
+    대리: dg ? '예 — ' + (f.ApproverName || dg.name || orig) + ' 님 대신' : '',
+    역할: String(f.ApproverRole || '')
+  }, extra || {});
+}
+function logErrText(e) { return String((e && e.message) || e || '').slice(0, 200); }
+function logReqTitle(f) { return String((f && f.Title) || '').replace(/-\d+$/, ''); }   // 결재행 Title(IT-…_ID-12-3) → 신청 제목(IT-…_ID-12)
 // 한 호출이 재시도로 쓸 수 있는 총 대기 시간과 횟수.
 // 예전에는 3회 고정이고 상한이 없었다. 서버가 Retry-After 로 60초를 요구하면
 // 그대로 60초를 기다려 화면이 그동안 멈췄다. 사용자는 먹통이라 여기고
@@ -1915,6 +1942,7 @@ function applyFlexApprovers(){
 }
 
 async function submitTicket(prefix) {
+  let _lgRid = '';   // 기록용 신청 번호(10-15) — 신청 행을 만든 뒤에 채운다
   const isInc = prefix === 'inc';
   const type = document.getElementById(prefix + '-type').value;
   const priority = document.getElementById(prefix + '-priority').value;
@@ -1990,6 +2018,7 @@ async function submitTicket(prefix) {
     };
     const item = await api('/sites/' + siteId + '/lists/IT_Requests/items', 'POST', { fields: coreFields });
     const reqId = item.id;
+    _lgRid = reqId;
     await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Title: prefix2 + '-' + dateStr + '_ID-' + reqId } });
     // 사용자가 입력한 제목은 별도 필드(TicketTitle)로 저장 - 자동생성 ID(Title)는 그대로 유지해 기존 연동(Power Automate 등)에 영향 없도록 함
     try {
@@ -2084,10 +2113,14 @@ async function submitTicket(prefix) {
       }});
     }
 
+    logChange('IT Ticket', '상신', () => ({ 신청번호: Number(reqId), 제목: 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId, 유형: type, 우선순위: priority, 결재단계: approvers.length, 첨부: files.length }));   // 10-15
     showAlert('티켓이 등록되었습니다.', 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId);
     resetForm(prefix);
     switchTab('list');
-  } catch(e) { showAlert('오류가 발생했습니다.', e.message, '⚠️'); }
+  } catch(e) {
+    logChange('IT Ticket', '상신 실패', () => ({ 신청번호: _lgRid ? Number(_lgRid) : '', 유형: type, 오류: logErrText(e) }));   // 10-15
+    showAlert('오류가 발생했습니다.', e.message, '⚠️');
+  }
   finally { loading(false); }
 }
 
@@ -2365,6 +2398,10 @@ async function confirmApproval() {
 }
 
 async function processApproval(apprId, action, reqId, comment='') {
+  // 결재 처리 기록(10-15) — APS 통합 결재함과 같은 「결재 승인」 · 「결재 반려」. 결재행을 쓴 뒤에만 남기고, 쓰기 전 오류는 「…실패」
+  const _lgAct = action==='반려' ? '결재 반려' : '결재 승인';
+  let _lgF = null, _lgW = false, _lgRes = '';
+  const _lg = (what, res, ex) => logChange('IT Ticket', what, () => Object.assign({ 신청번호: Number(reqId), 제목: logReqTitle(_lgF), 결과: res }, logAprDetail(_lgF, { 의견글자수: String(comment||'').length, 결재행: apprId }), ex || {}));
   loading(true);
   try {
     // 이중 결재 방지: 처리 전 현재 Status 확인
@@ -2373,11 +2410,14 @@ async function processApproval(apprId, action, reqId, comment='') {
       showAlert('이미 처리된 결재 항목입니다.', '다른 창에서 처리되었거나 이미 완료된 항목입니다.', '⚠️');
       await loadApprovalQueue(); await checkApprover(); return;
     }
+    _lgF = _cur.fields;
     await api('/sites/' + siteId + '/lists/IT_Approvals/items/' + apprId, 'PATCH', {
       fields: aacPatchWith({ Status: action, ApprovalDate: new Date().toISOString(), Comment: comment || '' }, _cur.fields)
     });
+    _lgW = true;
     if (action === '반려') {
       await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: '반려' } });
+      _lgRes = '반려 — 신청 반려';
     } else if (action === '승인') {
       // 다음 잠긴 결재자를 '대기'로 풀어 준다. 없으면 신청을 승인완료로 마감한다.
       //
@@ -2394,6 +2434,7 @@ async function processApproval(apprId, action, reqId, comment='') {
       const _rows = _apRes.value || [];
       if (!_rows.length) {
         console.error('[결재] 결재 행 조회 결과가 비어 있음 — 승인완료 전환 중단. RequestID:', reqId);
+        _lgRes = '승인 기록 · 다음 단계로 넘기지 못함(결재 행 조회 0건)'; _lg(_lgAct, _lgRes);   // APS 와 같은 문구(10-15)
         showAlert('승인은 기록되었으나 다음 단계로 넘기지 못했습니다.',
           '잠시 후 결재함에서 상태를 다시 확인해 주세요. 계속 같은 증상이면 IT팀(stk_it@hyosung.com)에 알려주세요.', '⚠️');
         await loadApprovalQueue(); await checkApprover();
@@ -2403,20 +2444,28 @@ async function processApproval(apprId, action, reqId, comment='') {
                         .sort((a, b) => a.fields.ApprovalOrder - b.fields.ApprovalOrder);
       if (next.length) {
         await api('/sites/' + siteId + '/lists/IT_Approvals/items/' + next[0].id, 'PATCH', { fields: { Status: '대기' } });
+        _lgRes = '승인 — ' + (next[0].fields.ApprovalOrder ?? '') + '차 결재자에게 넘김';
       } else {
         await api('/sites/' + siteId + '/lists/IT_Requests/items/' + reqId, 'PATCH', { fields: { Status: '승인완료' } });
+        _lgRes = '승인 — 최종 승인(신청 승인완료)';
       }
     }
+    _lg(_lgAct, _lgRes || '승인');
     showAlert(action+' 처리되었습니다.', '', action==='반려'?'❌':'✅');
     await loadApprovalQueue();
     await checkApprover();
-  } catch(e) { showAlert('오류가 발생했습니다.', e.message, '⚠️'); }
+  } catch(e) {
+    if (_lgW && !_lgRes) _lg(_lgAct, '결재행은 기록됨 · 이후 단계 오류 — ' + logErrText(e));   // APS 와 같은 문구
+    else if (!_lgW) _lg(_lgAct + ' 실패', '처리 안 함', { 오류: logErrText(e) });
+    showAlert('오류가 발생했습니다.', e.message, '⚠️');
+  }
   finally { loading(false); }
 }
 
 // ── Admin list ──
 
 async function exportITAdminExcel(){
+  let _xlLog = null;   // 기록 내용(10-15) — 파일을 만든 뒤에 남긴다
   loading(true,'Excel 생성 중...');
   try{
     const data = await apiAll('/sites/'+siteId+'/lists/IT_Requests/items?$expand=fields&$top=500');
@@ -2431,7 +2480,8 @@ async function exportITAdminExcel(){
       (i.fields.Title||'').toLowerCase().includes(filterSearch)
     );
     if(!items.length){loading(false);alert('내보낼 데이터가 없습니다.');return;}
-    logAction('IT Ticket', 'Excel 내보내기', { 건수: items.length, 필터: { 상태: filterStatus||'전체', 유형: filterType||'전체', 검색어: filterSearch||'' } });
+    // 출력 기록은 파일을 만든 뒤로 옮겼다(10-15) — 예전에는 만들기 전에 「성공」 으로 남아 실패해도 흔적이 없었다
+    _xlLog = () => ({ 건수: items.length, 필터: { 상태: filterStatus||'전체', 유형: filterType||'전체', 검색어: filterSearch||'' } });
 
     // 결재자 정보 병합
     let apprMap = {};
@@ -2532,7 +2582,11 @@ async function exportITAdminExcel(){
     ws3['!cols'] = [{wch:6},{wch:24},{wch:28},{wch:10},{wch:10},{wch:6},{wch:18},{wch:14},{wch:28},{wch:60}];
     XLSX.utils.book_append_sheet(wb, ws3, '업무 처리 의견');
     XLSX.writeFile(wb, 'ITTicket_Admin_'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'.xlsx');
-  }catch(e){alert('Excel 생성 실패: '+e.message);}
+    logChange('IT Ticket', 'Excel 내보내기', _xlLog);
+  }catch(e){
+    logChange('IT Ticket', 'Excel 내보내기 실패', () => Object.assign(_xlLog ? _xlLog() : {}, { 오류: logErrText(e) }));
+    alert('Excel 생성 실패: '+e.message);
+  }
   finally{loading(false);}
 }
 async function loadAdminList() {
@@ -3521,24 +3575,37 @@ async function uniConfirmApproval() {
   _uniPending = null;
   const lists = _UNI_LIST_MAP[sysKey] || {};
   if (!lists.apr) { alert('알 수 없는 시스템: ' + sysKey); return; }
+  // 결재 처리 기록(10-15) — APS 통합 결재함과 같은 「결재 승인」 · 「결재 반려」 + 시스템. 이 경로는 결재행을 미리 읽지 않아
+  // 차수 · 역할은 승인 때 다시 읽은 행에서만 채운다(읽기를 새로 늘리지 않는다).
+  const _lgAct = action==='반려' ? '결재 반려' : '결재 승인';
+  let _lgF = null, _lgW = false, _lgRes = '';
+  const _lg = (what, res, ex) => logChange('IT Ticket', what, () => Object.assign({ 시스템: sysKey, 신청번호: Number(reqId), 제목: logReqTitle(_lgF), 결과: res }, logAprDetail(_lgF, { 의견글자수: String(comment||'').length, 목록: lists.apr, 결재행: apprId, 화면: '통합 결재함' }), ex || {}));
   loading(true);
   try {
     await api('/sites/'+siteId+'/lists/'+lists.apr+'/items/'+apprId, 'PATCH', {
       fields: {Status: action==='승인'?'승인':action, ApprovalDate: new Date().toISOString(), Comment: comment}
     });
+    _lgW = true;
     if (action === '반려') {
       await api('/sites/'+siteId+'/lists/'+lists.req+'/items/'+reqId, 'PATCH', {fields:{Status:'반려'}});
+      _lgRes = '반려 — 신청 반려';
     } else {
       const all = await apiAll('/sites/'+siteId+'/lists/'+lists.apr+'/items?$expand=fields&$top=500');
+      try { const _me = (all.value || []).find(i => String(i.id) === String(apprId)); if (_me) _lgF = Object.assign({}, _me.fields, { ApproverEmail: '' }); } catch (le) {}   // 이미 「승인」 으로 바뀐 행 — 결재자 메일은 처리자와 같아 비운다
       const next = all.value.filter(i => Number(i.fields.RequestID)===Number(reqId) && (i.fields.Status||'').trim()==='대기(잠김)')
                             .sort((a,b) => a.fields.ApprovalOrder - b.fields.ApprovalOrder);
-      if (next.length) await api('/sites/'+siteId+'/lists/'+lists.apr+'/items/'+next[0].id, 'PATCH', {fields:{Status:'대기'}});
-      else await api('/sites/'+siteId+'/lists/'+lists.req+'/items/'+reqId, 'PATCH', {fields:{Status:'승인완료'}});
+      if (next.length) { await api('/sites/'+siteId+'/lists/'+lists.apr+'/items/'+next[0].id, 'PATCH', {fields:{Status:'대기'}}); _lgRes = '승인 — ' + (next[0].fields.ApprovalOrder ?? '') + '차 결재자에게 넘김'; }
+      else { await api('/sites/'+siteId+'/lists/'+lists.req+'/items/'+reqId, 'PATCH', {fields:{Status:'승인완료'}}); _lgRes = '승인 — 최종 승인(신청 승인완료)'; }
     }
+    _lg(_lgAct, _lgRes || '승인');
     closeModal();
     setTimeout(() => loadUnifiedData(), 600);
     setTimeout(() => loadUnifiedBadge(), 1200);
-  } catch(e) { alert('오류: ' + e.message); }
+  } catch(e) {
+    if (_lgW && !_lgRes) _lg(_lgAct, '결재행은 기록됨 · 이후 단계 오류 — ' + logErrText(e));   // APS 와 같은 문구
+    else if (!_lgW) _lg(_lgAct + ' 실패', '처리 안 함', { 오류: logErrText(e) });
+    alert('오류: ' + e.message);
+  }
   finally { loading(false); }
 }
 
@@ -3561,10 +3628,12 @@ async function withdrawRequest(e, reqId, aprList, reqList) {
       api('/sites/'+siteId+'/lists/'+aprList+'/items/'+i.id, 'PATCH', {fields:{Status:'철회(잠김)'}})
     ));
     await api('/sites/'+siteId+'/lists/'+reqList+'/items/'+reqId, 'PATCH', {fields:{Status:'철회'}});
+    logChange('IT Ticket', '철회', () => ({ 신청번호: Number(reqId), 제목: logReqTitle(sorted[0] && sorted[0].fields), 목록: reqList, 결재행: myAprs.length }));   // 10-15
     if(typeof showAlert === 'function') showAlert('철회 완료','신청이 철회되었습니다.','✅');
     else alert('신청이 철회되었습니다.');
     loadMyList();
   } catch(err) {
+    logChange('IT Ticket', '철회 실패', () => ({ 신청번호: Number(reqId), 목록: reqList, 오류: logErrText(err) }));   // 10-15
     alert('오류: ' + err.message);
   }
 }
