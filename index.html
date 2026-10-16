@@ -1768,9 +1768,12 @@ function _sapCctr(p, req, note, en, ko) {
 function sapCctrSearch(p, q) {
   const a = sapAcct[p], box = document.getElementById(p + '-sap-sugg'); if (!a || !box || !_cctrList) return;
   const k = String(q || '').trim().toLowerCase();
-  const hit = _cctrList.filter(c => !a.cctr.some(x => x.code === c.code) && (!k || c.code.includes(k) || c.name.toLowerCase().includes(k))).slice(0, 8);
+  // 8건에서 끊던 것을 전체 목록으로(10-16) — 목록 상자(.sa-sugg)는 최대 240px 에서 스크롤된다. 너무 많으면 300건까지 보이고 아래에 건수 안내.
+  const all = _cctrList.filter(c => !a.cctr.some(x => x.code === c.code) && (!k || c.code.includes(k) || c.name.toLowerCase().includes(k)));
+  const SAP_CCTR_SHOW = 300, hit = all.slice(0, SAP_CCTR_SHOW);
   box.innerHTML = hit.length
-    ? hit.map(c => '<button type="button" class="sa-sugg-item" role="option" onmousedown="event.preventDefault()" onclick="sapCctrAdd(\'' + p + '\',\'' + c.code + '\')"><b>' + escHtml(c.code) + '</b> ' + escHtml(c.name) + '</button>').join('')
+    ? hit.map(c => '<button type="button" class="sa-sugg-item" role="option" onmousedown="event.preventDefault()" onclick="sapCctrAdd(\'' + p + '\',\'' + c.code + '\')"><b>' + escHtml(c.code) + '</b> ' + escHtml(c.name) + '</button>').join('') +
+      '<div class="sa-sugg-foot">' + (all.length > hit.length ? hit.length + ' / ' + all.length + '건 표시 — 코드나 이름으로 좁혀 보세요' : all.length + '건') + '</div>'
     : '<div class="sa-sugg-empty">No match 검색 결과 없음</div>';
   box.hidden = false;
 }
@@ -4301,11 +4304,12 @@ textarea.sa-input{resize:vertical;min-height:64px;line-height:1.5}
 .sa-chip button{flex:none;border:none;background:transparent;color:#0b5fa5;cursor:pointer;font-size:11px;line-height:1;padding:3px 6px;border-radius:10px}
 .sa-chip button:hover{background:#0078d4;color:#fff}
 .sa-search{position:relative}
-.sa-sugg{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:#fff;border:1px solid #c7e0f4;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;padding:3px}
+.sa-sugg{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:#fff;border:1px solid #c7e0f4;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;overscroll-behavior:contain;padding:3px}
 .sa-sugg[hidden]{display:none}
 .sa-sugg-item{display:block;width:100%;text-align:left;border:none;background:none;padding:6px 8px;font-size:12px;font-family:inherit;color:#323130;cursor:pointer;border-radius:4px;overflow-wrap:anywhere}
 .sa-sugg-item:hover{background:#f0f6ff;color:#0078d4}
 .sa-sugg-empty{padding:6px 8px;font-size:12px;color:#a19f9d}
+.sa-sugg-foot{position:sticky;bottom:-3px;margin:2px -3px -3px;padding:4px 10px;font-size:11px;color:#8a8886;background:#faf9f8;border-top:1px solid #edebe9;border-radius:0 0 6px 6px}
 .sa-checks{display:flex;flex-wrap:wrap;gap:6px}
 .sa-check{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid #d6e4f2;border-radius:4px;font-size:12px;cursor:pointer;background:#fff}
 .sa-check.checked{border-color:#0078d4;background:#e8f2fc;color:#0078d4;font-weight:600}
