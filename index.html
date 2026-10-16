@@ -1101,17 +1101,16 @@ const SYSTEM_SUBS = {
   'SharePoint':          ['Permission change', 'Other'],
   'STK SAP-Be1':         SAP_SUBS,
   'STK WINCMS':          ['Transfer / Payment error', 'Bank interface issue', 'Access / Permission', 'Other'],
-  'STK Autofocus DMS':   ['Account / Login', 'Access / Permission', 'Device registration', 'IP registration', 'Error / Bug', 'Other'],
-  'STK Autofocus CRM':   ['Account / Login', 'Access / Permission', 'Device registration', 'IP registration', 'Lead / Data correction', 'Error / Bug', 'Other'],
+  'STK Autofocus DMS':   ['Account / Login', 'Access / Permission', 'Device registration', 'Access control', 'Error / Bug', 'Other'],
+  'STK Autofocus CRM':   ['Account / Login', 'Access / Permission', 'Device registration', 'Access control', 'Lead / Data correction', 'Error / Bug', 'Other'],
   'STK VPN':             ['New account', 'Connection issue', 'Password reset', 'Other'],
   'STK MKQR':            ['Campaign / QR setup', 'Access / Permission', 'Error / Bug', 'Other'],
   'STK ICS':             ['Access / Permission', 'Control / Evidence update', 'Error / Bug', 'Other'],
   'Shared Service Center': ['Access / Permission', 'Ticket / Workflow issue', 'Error / Bug', 'Other'],
-  'Hyosung M365':        ['Account / License', 'Outlook / Mail', 'Teams', 'OneDrive / SharePoint', 'MFA / Password', 'Other'],
-  'Hyosung GUMS':        ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
+  'Hyosung M365':        ['Account / License', 'Outlook / Mail', 'Teams', 'Other'],
+  'Hyosung GUMS':        ['Access / Permission', 'Account re-activation', 'Account deactivation', 'Other'],   // 재활성화 → 부서장 + HR, 비활성화 → HR 자동 결재자(10-16)
   'Hyosung Viva Engage': ['Access / Community', 'Error / Bug', 'Other'],
   'CoD':                 ['Replacement', 'Name change / Addition', 'Other'],   // 교체 · 명의 변경 or 추가 · Other
-  'STK Watermark':       ['Installation', 'Exception request', 'Error / Bug', 'Other'],
 };
 // 탭별로 빼는 구분(10-16) — Change / Request 탭은 오류 · 장애 성격의 구분을 보이지 않는다(Incident / Problem 티켓으로 받는다).
 // 화면 선택지에서만 뺀다 — 저장값 해석(sysSubsOf)은 전체 목록을 써서 예전 Change 티켓의 값도 그대로 보인다.
@@ -1119,6 +1118,11 @@ const SYSTEM_SUBS_EXCLUDE = { chg: ['Error / Bug', 'Connection issue', 'Ticket /
 // 목록에서 빠졌지만 예전 티켓에 저장돼 있을 수 있는 시스템 · 구분 — 저장값 해석에만 쓴다(화면 선택지에는 없음)
 const SYSTEMS_LEGACY = ['STK RAS', 'STK Intra CV'];   // 더 쓰지 않는 시스템 — 예전 티켓의 대상 시스템 글자는 그대로 보인다
 const SYSTEM_SUBS_LEGACY = {
+  'Hyosung M365': ['OneDrive / SharePoint', 'MFA / Password'],
+  'STK Watermark': ['Installation', 'Exception request', 'Error / Bug', 'Other'],   // 구분 칸 없음(10-16) — 예전 티켓 값만 읽는다
+  'Hyosung GUMS': ['Account / Login', 'Error / Bug'],
+  'STK Autofocus DMS': ['IP registration'],   // → Access control(10-16)
+  'STK Autofocus CRM': ['IP registration'],
   'STK SAP-Be1':  ['Account activation', 'Account deactivation'],   // Account change 의 Re-activation · Deactivation 으로 옮김
   'STK RAS':      ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
   'STK Intra CV': ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
@@ -1615,8 +1619,10 @@ function initSysGrid(gridId) {
       ? '<div class="sys-sub" id="' + gridId + '-sub-' + sysSlug(s) + '" data-sys="' + escHtml(s) + '" role="radiogroup" aria-label="' + escHtml(s) + ' 요청 구분" hidden>' +
           '<div class="sys-sub-title">↳ ' + escHtml(s) + ' 요청 구분 <span class="req">*</span></div>' +
           '<div class="sys-sub-opts">' + sysSubsFor(gridId.replace(/-sys-grid$/, ''), s).map(o =>
-            '<label class="sys-sub-opt"><input type="radio" name="' + gridId + '-sub-' + sysSlug(s) + '" value="' + escHtml(o) + '" onchange="onSysSub(this)"> ' + escHtml(o) + '</label>').join('') +
+            '<label class="sys-sub-opt" onpointerdown="subRadioDown(this)"><input type="radio" name="' + gridId + '-sub-' + sysSlug(s) + '" value="' + escHtml(o) + '" onchange="onSysSub(this)" onclick="subRadioClick(this)" onkeydown="subRadioKey(this,event)"> ' + escHtml(o) + '</label>').join('') +
           '</div>' +
+          (SUB_NOTICES[s] ? '<div class="sys-sub-hint sub-notice" id="' + gridId.replace(/-sys-grid$/, '') + '-subnote-' + sysSlug(s) + '" role="note" hidden></div>' : '') +   // 구분별 빨간 안내(10-16)
+          (AFS_SYSTEMS.includes(s) ? '<div class="sap-acct afs-acct" id="' + gridId.replace(/-sys-grid$/, '') + '-afs-' + sysSlug(s) + '" hidden></div>' : '') +   // Autofocus Access control 상세(10-16)
           (s === SAP_SYS ? '<div class="sap-acct" id="' + gridId.replace(/-sys-grid$/, '') + '-sap-acct" hidden></div>' : '') +   // 계정 요청 상세(10-16)
           (s === SAP_SYS ? '<div class="sys-sub-hint sap-notice" id="' + gridId.replace(/-sys-grid$/, '') + '-sap-notice" role="note" hidden></div>' : '') +   // 빨간 안내 — 고른 구분에 따라 sapAcctRender 가 채운다
         '</div>'
@@ -1640,13 +1646,40 @@ function itSubPanel(p, sys, show) {
   box.hidden = !show;
   if (!show) box.querySelectorAll('input[type="radio"]').forEach(r => { r.checked = false; r.parentElement.classList.remove('checked'); });
   if (!show && sys === SAP_SYS) sapAcctSet(p, '');   // 계정 상세도 비운다
+  if (!show && AFS_SYSTEMS.includes(sys)) afsSet(p, sys, '');
+  if (!show) subNoticeSet(p, sys, '');
+}
+/* 구분별 빨간 안내(10-16) — 고른 구분에 결재가 더 필요할 때만, 그 시스템 구분 칸 안에(SAP-Be1 은 sapAcctRender 가 따로 그린다) */
+const SUB_NOTICES = {
+  'Hyosung GUMS': {
+    'Account re-activation': '<b>Account re-activation</b> requests require additional approval from the Department Head and the HR team.',
+    'Account deactivation':  '<b>Account deactivation</b> requests require additional approval from the HR team.',
+  },
+};
+function subNoticeSet(p, sys, opt) {
+  const el = document.getElementById(p + '-subnote-' + sysSlug(sys)); if (!el) return;
+  const h = (SUB_NOTICES[sys] || {})[opt] || '';
+  el.innerHTML = h ? SAP_WARN_SVG + '<span>' + h + '</span>' : ''; el.hidden = !h;
+}
+/* 다시 눌러 선택 해제(10-16) — 요청 구분 라디오는 이미 고른 것을 한 번 더 누르면(또는 Space) 선택이 풀린다.
+   풀릴 때는 다른 구분으로 바꿀 때와 똑같이 onSysSub 를 불러 상세 칸 · 자동 결재자 · 안내를 정리한다. 화살표 이동은 브라우저 기본 그대로. */
+function subRadioDown(label) { const r = label.querySelector('input[type="radio"]'); if (r) r.dataset.was = r.checked ? '1' : ''; }
+function subRadioClick(r) {
+  if (r.dataset.was === '1') { r.checked = false; onSysSub(r); }
+  r.dataset.was = '';
+}
+function subRadioKey(r, e) {
+  if ((e.key === ' ' || e.code === 'Space') && r.checked) { e.preventDefault(); r.checked = false; r.dataset.was = ''; onSysSub(r); }
 }
 function onSysSub(r) {
   const box = r.closest('.sys-sub'); if (!box) return;
   box.querySelectorAll('input[type="radio"]').forEach(x => x.parentElement.classList.toggle('checked', x.checked));
+  const _val = r.checked ? r.value : '';   // 선택 해제면 ''
+  if (AFS_SYSTEMS.includes(box.dataset.sys)) afsSet(box.id.replace(/-sys-grid-sub-.*$/, ''), box.dataset.sys, _val);
+  if (SUB_NOTICES[box.dataset.sys]) { const _p = box.id.replace(/-sys-grid-sub-.*$/, ''); subNoticeSet(_p, box.dataset.sys, _val); itRenderApprLine(_p); }   // GUMS 자동 결재자
   if (box.dataset.sys === SAP_SYS) {
     const _p = box.id.replace(/-sys-grid-sub-.*$/, '');
-    sapAcctSet(_p, r.value);   // 구분을 바꾸면 계정 상세를 새로 연다(계정 구분이 아니면 닫힘)
+    sapAcctSet(_p, _val);   // 구분을 바꾸면 계정 상세를 새로 연다(계정 구분이 아니면 · 해제면 닫힘)
     itRenderApprLine(_p);      // CCTR 자동 결재자는 SAP-Be1 만
   }
 }
@@ -1671,7 +1704,7 @@ const SAP_ACT_REASONS = ['Return from leave', 'Rejoined', 'Re-enable after deact
 const SAP_DEACT_REASONS = ['Resignation', 'Transfer', 'Long-term leave', 'Other'];
 const SAP_CHG_ITEMS = ['Re-activation', 'Deactivation', 'Authorization / Role', 'Other'];   // Re-activation · Deactivation 은 서로 배타(10-16 9차 — CCTR · 승인권자 · 동일 권한은 Account change 에서 뺐다)
 const SAP_CHG_DETAIL_ITEMS = ['Authorization / Role', 'Other'];   // 이 중 하나라도 고르면 Change details 필수
-const SAP_MAX_LVL = 3;
+const SAP_MAX_LVL = 4;
 const SAP_SAME_TEXT = '위 정보 확인이 어려우신 경우, 현재 팀에서 사용 중인 다른 직원의 SAP Be1 계정과 동일한 권한으로 설정할 수 있습니다. 해당 직원분의 성함을 선택해 주시면 동일한 권한으로 설정하겠습니다.';
 const SAP_BLOCK_KEYS = { 'Target user': '대상 사용자', 'What to change': '변경 항목', 'CCTR': 'PO 생성 및 GR 처리 CCTR', 'Higher-level approver': '상위 승인권자',
   'Change details': '변경 내용', 'Re-activation reason': '재활성화 사유', 'Activation reason': '활성화 사유', 'Deactivation effective date': '비활성화 적용일', 'Deactivation reason': '비활성화 사유',
@@ -1820,7 +1853,8 @@ function _sapLevels(p, list, en, ko) {
     h += arr.map((v, i) => '<div class="sa-lvl"><span class="sa-lvl-no">' + (i + 1) + '차</span><div class="sa-lvl-body">' + _sapSelects(p, list + i, v) +
         '<div class="sa-picked" id="' + p + '-sap-' + list + i + '-picked">' + (v.email ? escHtml(v.name) + ' · ' + escHtml(v.email) : '<span class="sa-dim">—</span>') + '</div></div>' +
         (arr.length > 1 ? '<button type="button" class="sa-lvl-del" aria-label="' + (i + 1) + '차 삭제" onclick="sapLvlDel(\'' + p + '\',\'' + list + '\',' + i + ')">✕</button>' : '') + '</div>').join('') +
-      (arr.length < SAP_MAX_LVL ? '<button type="button" class="sa-lvl-add" id="' + p + '-sap-' + list + '-add" onclick="sapLvlAdd(\'' + p + '\',\'' + list + '\')">+ 단계 추가</button>' : '');
+      (arr.length < SAP_MAX_LVL ? '<button type="button" class="sa-lvl-add" id="' + p + '-sap-' + list + '-add" onclick="sapLvlAdd(\'' + p + '\',\'' + list + '\')">+ 단계 추가</button>'
+        : '<button type="button" class="sa-lvl-add" id="' + p + '-sap-' + list + '-add" disabled>Maximum ' + SAP_MAX_LVL + '</button>');
   }
   return h + '</div>';
 }
@@ -1868,7 +1902,7 @@ function sapAcctCheck(p) {   // 상신 전 검사 — 빠진 칸 하나를 알�
   const hasCctr = a.cctr.length || (_cctrState === 'fail' && a.cctrFree.trim());
   if (!a.target.email) return P + 'Target user(대상 사용자)를 선택해주세요.';
   if (a.opt === SAP_CCTR) {
-    const lv = (arr, en, ko) => { for (let i = 0; i < arr.length; i++) if (!arr[i].email) return P + en + '(' + ko + ') ' + (i + 1) + '차 결재자를 선택' + (i ? '하거나 ✕로 지워 주세요.' : '해주세요.'); return ''; };
+    const lv = (arr, en, ko) => { for (let i = 0; i < arr.length; i++) if (!arr[i].email) return i ? P + ko + ' ' + (i + 1) + '차를 선택하거나 ✕로 지워 주세요.' : P + en + '(' + ko + ') 1차 결재자를 선택해주세요.'; return ''; };
     if (!a.curNone) { const e = lv(a.cur, 'Current approval line', '현재 결재 라인'); if (e) return e; }
     const e2 = lv(a.req, 'Requested approval line', '변경 요청 결재 라인'); if (e2) return e2;
     if (!a.why.trim()) return P + 'Reason for change(변경 사유)를 입력해주세요.';
@@ -1909,17 +1943,105 @@ function sapAcctBlock(p) {   // 저장 블록 — 「[SAP-Be1 · Account creatio
   }
   return '[SAP-Be1 · ' + a.opt + ']\n' + L.filter(x => x[1]).map(x => x[0] + ': ' + x[1]).join('\n');
 }
-function sapBlockParse(text) {   // 저장된 상세 내용 → { opt, rows:[[키, 값]], start, end } · 없으면 null
-  // 칸 맨 끝의 마지막 블록만 인정한다(10-16 검토) — 사용자가 본문 중간에 블록 모양 글자를 써도 표로 바뀌거나 진짜 블록을 밀어내지 않게.
-  const s = String(text || '');
-  const keys = Object.keys(SAP_BLOCK_KEYS).map(k => k.replace(/[-/]/g, '\\$&')).join('|');
-  const m = s.match(new RegExp('(^|\\n)\\[SAP-Be1 · (' + Object.keys(SAP_OPT_KO).join('|') + ')\\]\\n((?:(?:' + keys + '): [^\\n]*(?:\\n|$))+)\\s*$'));
-  if (!m) return null;
-  const rows = m[3].split('\n').filter(Boolean).map(l => { const i = l.indexOf(': '); return [l.slice(0, i), l.slice(i + 2)]; });
-  return { opt: m[2], rows, start: m.index, end: m.index + m[0].length };
+/* 저장 블록 공통(10-16) — 상세 내용 칸 끝에 「[머리 · 구분]」 + 「키: 값」 줄 블록을 붙인다(SAP-Be1 · Autofocus Access control).
+   · 칸 맨 끝부터 이어 붙은 블록만 거꾸로 읽고, 대상 시스템에 같은 「시스템 (구분)」 이 없는 블록에서 멈춘다 — 본문 중간 · 끝의 위조 글자는 표가 되지 않는다.
+   · 상신할 때 사용자 본문의 줄 머리 「[머리 · 」 는 전각 「［」 로 바꾼다(blkNeutral). */
+const BLOCK_DEFS = [
+  { head: 'SAP-Be1', sys: SAP_SYS, title: 'SAP-Be1 요청 상세', opts: () => Object.keys(SAP_OPT_KO), keys: () => SAP_BLOCK_KEYS, ko: (o) => SAP_OPT_KO[o] || '', keyKo: (o, k) => sapKeyKo(o, k) },
+  { head: 'STK Autofocus DMS', sys: 'STK Autofocus DMS', title: 'STK Autofocus DMS 요청 상세', opts: () => ['Access control'], keys: () => AFS_BLOCK_KEYS, ko: () => '접근 통제', keyKo: (o, k) => AFS_BLOCK_KEYS[k] || '' },
+  { head: 'STK Autofocus CRM', sys: 'STK Autofocus CRM', title: 'STK Autofocus CRM 요청 상세', opts: () => ['Access control'], keys: () => AFS_BLOCK_KEYS, ko: () => '접근 통제', keyKo: (o, k) => AFS_BLOCK_KEYS[k] || '' },
+];
+const _reEsc = x => x.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+function blocksParse(text, systems) {   // → [{ def, head, opt, rows, start, end }] (앞에서 뒤 순서) · systems 를 주면 맞는 블록까지만
+  const s = String(text || ''), out = [];
+  let rest = s;
+  for (let n = 0; n < 8; n++) {
+    let hit = null;
+    for (const d of BLOCK_DEFS) {
+      const keys = Object.keys(d.keys()).map(_reEsc).join('|');
+      const m = rest.match(new RegExp('(^|\\n)\\[' + _reEsc(d.head) + ' · (' + d.opts().map(_reEsc).join('|') + ')\\]\\n((?:(?:' + keys + '): [^\\n]*(?:\\n|$))+)\\s*$'));
+      if (m && (!hit || m.index > hit.m.index)) hit = { d, m };
+    }
+    if (!hit) break;
+    const { d, m } = hit;
+    if (systems != null && !sysSubsOf(systems).some(x => x.sys === d.sys && x.opt === m[2])) break;   // 대상 시스템에 없는 블록 — 여기서 멈춘다
+    const rows = m[3].split('\n').filter(Boolean).map(l => { const i = l.indexOf(': '); return [l.slice(0, i), l.slice(i + 2)]; });
+    out.unshift({ def: d, head: d.head, opt: m[2], rows, start: m.index, end: m.index + m[0].length });
+    rest = rest.slice(0, m.index);
+  }
+  return out;
 }
-// 사용자가 쓴 상세 내용에서 줄 머리의 「[SAP-Be1 · 」 를 전각 괄호 「［」 로 바꿔 저장 블록으로 읽히지 않게 한다(보이는 모양은 거의 같다)
-function sapNeutral(t) { return String(t == null ? '' : t).replace(/(^|\n)(\s*)\[SAP-Be1 · /g, '$1$2［SAP-Be1 · '); }
+function sapBlockParse(text) {   // 예전 이름 — 끝에 붙은 블록 중 SAP-Be1 블록 { opt, rows, start, end } · 없으면 null
+  const b = blocksParse(text).find(x => x.head === 'SAP-Be1');
+  return b ? { opt: b.opt, rows: b.rows, start: b.start, end: b.end } : null;
+}
+// 사용자가 쓴 상세 내용에서 줄 머리의 「[SAP-Be1 · 」 「[STK Autofocus … · 」 를 전각 괄호 「［」 로 바꿔 저장 블록으로 읽히지 않게 한다(보이는 모양은 거의 같다)
+function blkNeutral(t) {
+  const heads = BLOCK_DEFS.map(d => _reEsc(d.head)).join('|');
+  return String(t == null ? '' : t).replace(new RegExp('(^|\\n)(\\s*)\\[(' + heads + ') · ', 'g'), '$1$2［$3 · ');
+}
+const sapNeutral = blkNeutral;
+function blkTable(b) {   // 상세 화면 표 하나
+  return '<table class="sa-dl"><tr><th>Request<span>요청</span></th><td>' + escHtml(b.opt) + ' · ' + escHtml(b.def.ko(b.opt)) + '</td></tr>' +
+    b.rows.map(r => '<tr><th>' + escHtml(r[0]) + '<span>' + escHtml(b.def.keyKo(b.opt, r[0])) + '</span></th><td>' +
+      (r[0] === 'CCTR' ? r[1].split(/\s*;\s*/).map(escHtml).join('<br>')
+        : (r[0] === 'Current approval line' || r[0] === 'Requested approval line') && / → /.test(r[1]) ? r[1].split(' → ').map((x, i) => (i + 1) + '. ' + escHtml(x)).join('<br>')
+        : r[0] === 'Dealer contact' ? r[1].split(' / ').map(escHtml).join('<br>')
+        : escHtml(r[1])) + '</td></tr>').join('') + '</table>';
+}
+
+/* ══ STK Autofocus DMS · CRM — Access control 상세(10-16) ══
+   「Access control」 을 고르면 그 시스템 구분 칸 아래에 접근 허용 기간 · 사유 · 담당 딜러사 · 딜러사 담당자 연락처를 받는다(두 시스템 각각).
+   값은 afsAcc[탭][시스템] 에 두고, 상신 때 「[STK Autofocus CRM · Access control]」 블록으로 상세 내용 끝에 붙인다. */
+const AFS_SYSTEMS = ['STK Autofocus DMS', 'STK Autofocus CRM'];
+const AFS_OPT = 'Access control';
+const AFS_BLOCK_KEYS = { 'Access period': '접근 허용 기간', 'Reason': '사유', 'Dealer': '담당 딜러사', 'Dealer contact': '딜러사 담당자 연락처' };
+const afsAcc = { inc: {}, chg: {} };
+function afsSet(p, sys, opt) {
+  afsAcc[p][sys] = opt === AFS_OPT ? { from: '', to: '', reason: '', dealer: '', cname: '', cemail: '', cphone: '' } : null;
+  afsRender(p, sys);
+}
+function afsRender(p, sys) {
+  const box = document.getElementById(p + '-afs-' + sysSlug(sys)); if (!box) return;
+  const a = afsAcc[p][sys];
+  if (!a) { box.hidden = true; box.innerHTML = ''; return; }
+  const id = p + '-afs-' + sysSlug(sys), st = 'afsAcc.' + p + '[\'' + sys + '\']';
+  const inp = (k, type, ph, extra) => '<input type="' + type + '" class="sa-input" id="' + id + '-' + k + '" value="' + escHtml(a[k]) + '" placeholder="' + ph + '"' + (extra || '') + ' oninput="' + st + '.' + k + '=this.value">';
+  box.innerHTML = '<div class="sa-head">' + escHtml(sys) + ' · Access control <span class="ko">접근 통제</span></div>' +
+    '<div class="sa-row" data-k="period">' + _sapLbl('Access period', '접근 허용 기간', true) +
+      '<div class="afs-period">' + inp('from', 'date', '', ' onchange="afsFrom(\'' + p + '\',\'' + sys + '\',this.value)"') + '<span class="afs-tilde">~</span>' + inp('to', 'date', '', a.from ? ' min="' + escHtml(a.from) + '"' : '') + '</div></div>' +
+    '<div class="sa-row" data-k="reason">' + _sapLbl('Reason', '사유', true) +
+      '<textarea class="sa-input" id="' + id + '-reason" rows="2" placeholder="Why is access needed? 접근이 필요한 이유" oninput="' + st + '.reason=this.value">' + escHtml(a.reason) + '</textarea></div>' +
+    '<div class="sa-row" data-k="dealer">' + _sapLbl('Dealer', '담당 딜러사', true) + inp('dealer', 'text', 'Dealer name 딜러사명') + '</div>' +
+    '<div class="sa-row" data-k="contact">' + _sapLbl('Dealer contact', '딜러사 담당자 연락처', true) +
+      '<div class="afs-contact">' + inp('cname', 'text', 'Name 이름') + inp('cemail', 'email', 'Email 이메일') + inp('cphone', 'tel', 'Phone 전화번호') + '</div>' +
+      '<div class="sa-help">딜러사 연락처는 네트워크(접속 IP) 확인용으로 사용됩니다. · Used to verify the dealer network (access IP).</div></div>';
+  box.hidden = false;
+}
+function afsFrom(p, sys, v) { const a = afsAcc[p][sys]; if (!a) return; a.from = v; const to = document.getElementById(p + '-afs-' + sysSlug(sys) + '-to'); if (to) { if (v) to.min = v; else to.removeAttribute('min'); } }
+function afsCheck(p) {   // '' = 통과
+  for (const sys of AFS_SYSTEMS) {
+    const a = afsAcc[p][sys]; if (!a || itSubOf(p, sys) !== AFS_OPT) continue;
+    const P = sys + ' · ';
+    if (!a.from || !a.to) return P + 'Access period(접근 허용 기간) 시작일과 종료일을 입력해주세요.';
+    if (a.to < a.from) return P + 'Access period(접근 허용 기간) 종료일은 시작일과 같거나 뒤여야 합니다.';
+    if (!a.reason.trim()) return P + 'Reason(사유)을 입력해주세요.';
+    if (!a.dealer.trim()) return P + 'Dealer(담당 딜러사)를 입력해주세요.';
+    if (!a.cname.trim()) return P + 'Dealer contact(딜러사 담당자) 이름을 입력해주세요.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.cemail.trim())) return P + 'Dealer contact(딜러사 담당자) 이메일 형식을 확인해주세요.';
+    const ph = a.cphone.trim();
+    if (!/^[0-9+\-\s]+$/.test(ph) || (ph.match(/\d/g) || []).length < 7) return P + 'Dealer contact(딜러사 담당자) 전화번호 형식을 확인해주세요(숫자 · + · - · 공백, 7자리 이상).';
+  }
+  return '';
+}
+function afsBlocks(p) {   // 시스템 순서(DMS → CRM)대로 블록 글자
+  const one = x => String(x || '').replace(/\s*\n+\s*/g, ' / ').trim();
+  return AFS_SYSTEMS.filter(sys => afsAcc[p][sys] && itSubOf(p, sys) === AFS_OPT).map(sys => {
+    const a = afsAcc[p][sys];
+    return '[' + sys + ' · ' + AFS_OPT + ']\nAccess period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason) + '\nDealer: ' + one(a.dealer) +
+      '\nDealer contact: ' + [one(a.cname), one(a.cemail), one(a.cphone)].join(' / ');
+  });
+}
 function syncNoticeBoxes() {
   if (_activeTab !== 'change') {
     // Change탭 아닐 때는 모두 숨김
@@ -1957,7 +2079,7 @@ function onSysCheck(cb) {
   if (SYSTEM_SUBS[cb.value]) {   // 시스템별 요청 구분 칸 — 두 탭 모두(10-16). 해제하면 고른 값도 지운다(SAP-Be1 은 CCTR 자동 결재자도)
     const _p = (cb.closest('.sys-grid') || { id: '' }).id.replace(/-sys-grid$/, '');
     itSubPanel(_p, cb.value, cb.checked);
-    if (cb.value === SAP_SYS) itRenderApprLine(_p);
+    if (cb.value === SAP_SYS || SUB_NOTICES[cb.value]) itRenderApprLine(_p);
   }
   // Change탭일 때만 CoD/VPN 안내 박스 토글
   if (typeof _activeTab !== 'undefined' && _activeTab !== 'change') return;
@@ -2026,7 +2148,11 @@ async function loadEmployees() {
       name: r['EngName'] || '',
       email: r['EMail'] || r['email'] || '',
       boss: String(r['Boss']||'').trim(),      // G열 — 팀장(Line Manager · Team Leader), Flex 연동 결재자
-      boss2: String(r['Boss of Boss']||'').trim()   // H열 — 부서장(Department Head · MC)
+      boss2: String(r['Boss of Boss']||'').trim(),   // H열 — 부서장(Department Head · MC)
+      // HFS 고정 조직도 I · J · K 열(Team Manager · Department Head · RD, 값은 EngName 또는 '-') — ACC-Others 와 같은 읽기. 헤더가 없는 예전 파일이면 '' → 예전 규칙
+      tm: String(r['Team Manager']||'').trim(),
+      dhd: String(r['Department Head']||'').trim(),
+      rdc: String(r['RD']||'').trim()
     })).filter(r => r.email && r.name);
     ['inc','chg'].forEach(prefix => {
       const depts = [...new Set(employeeData.map(e => e.dept))].sort();
@@ -2142,9 +2268,14 @@ let _itExSeq = 0;
    · 설정 값이 비어 있으면 넣지 않고 경고 — 상신을 막는다(필수 결재자 누락 방지). */
 const itAutoInfo = { inc: { notes: [], err: '' }, chg: { notes: [], err: '' } };
 // 자동 결재자 묶음 — CCTR approval line → Controlling, Account change 의 Re-activation → HR. 사람은 설정 파일에서만 정한다.
-const IT_AUTO_GROUPS = [
-  { id: 'cctr', tag: 'CCTR', what: 'CCTR approval line', keys: SAP_CCTR_KEYS, on: p => itSapSub(p) === SAP_CCTR },
-  { id: 'hr',   tag: 'HR',   what: 'Account re-activation', keys: SAP_HR_KEYS, on: p => itSapSub(p) === 'Account change' && sapHasReact(sapAcct[p]) },   // Re-activation 만(Deactivation 은 HR 승인 없음)
+// 사람 하나 — 설정 키(cfg)이거나 Flex 명부의 부서장(dh)
+const _cfgM = (k, tag, id) => ({ kind: 'cfg', key: k, tag, id: id || tag.toLowerCase() });
+const _dhM = { kind: 'dh', key: 'Department Head', tag: '부서장', id: 'dh' };
+const IT_AUTO_GROUPS = [   // 순서 = 결재 순서. 같은 사람은 한 번만(먼저 나온 단계에)
+  { id: 'cctr', what: 'CCTR approval line', members: SAP_CCTR_KEYS.map(k => _cfgM(k, 'CCTR')), on: p => itSapSub(p) === SAP_CCTR },
+  { id: 'gums-react', what: 'Hyosung GUMS account re-activation', members: [_dhM].concat(SAP_HR_KEYS.map(k => _cfgM(k, 'HR'))), on: p => itSubOf(p, 'Hyosung GUMS') === 'Account re-activation' },
+  { id: 'gums-deact', what: 'Hyosung GUMS account deactivation', members: SAP_HR_KEYS.map(k => _cfgM(k, 'HR')), on: p => itSubOf(p, 'Hyosung GUMS') === 'Account deactivation' },
+  { id: 'hr', what: 'Account re-activation', members: SAP_HR_KEYS.map(k => _cfgM(k, 'HR')), on: p => itSapSub(p) === 'Account change' && sapHasReact(sapAcct[p]) },   // SAP-Be1 Re-activation 만(Deactivation 은 HR 승인 없음)
 ];
 function itSyncAuto(p) {
   const manual = (itExtra[p] || []).filter(x => !x.auto);
@@ -2154,24 +2285,35 @@ function itSyncAuto(p) {
   const a1El = document.getElementById(p + '-a1-email'), a1 = low(a1El && a1El.value);
   const seen = new Set();
   IT_AUTO_GROUPS.filter(g => g.on(p)).forEach(g => {
-    if (_sysConfig == null) { errs.push('설정 파일을 읽지 못해 ' + g.what + ' 결재자를 정할 수 없습니다 — 새로고침 후 다시 시도해 주세요.'); return; }   // 키가 비었다고 하지 않는다(10-16 검토)
-    const cfg = _sysConfig, miss = [];
-    g.keys.forEach((k, i) => {
-      const v = cfg && cfg[k], email = v ? String(v.email || '').trim() : '', name = v ? String(v.name || '').trim() : '';
-      const role = k.replace(/^IT_/, '').replace(/_/g, ' ');
-      if (!email) { miss.push(role + ' (' + k + ')'); return; }
+    const miss = [];
+    if (_sysConfig == null && g.members.some(m => m.kind === 'cfg')) { errs.push('설정 파일을 읽지 못해 ' + g.what + ' 결재자를 정할 수 없습니다 — 새로고침 후 다시 시도해 주세요.'); return; }   // 키가 비었다고 하지 않는다(10-16 검토)
+    g.members.forEach((m, i) => {
+      let email = '', name = '', role = '';
+      if (m.kind === 'dh') {   // 신청자의 부서장 — Flex 명부(employee_search) HFS 조직도 규칙(flexDeptHead)
+        const r = { dh: flexEmp().length ? flexDeptHead() : null };   // HFS 조직도(Department Head → RD) · 없으면 Boss of Boss → Boss
+        role = 'Department Head';
+        if (!r.dh) { errs.push(g.what + ' 결재자(부서장)를 Flex 명부(employee_search)에서 찾지 못해 상신할 수 없습니다 — IT팀(stk_it@hyosung.com)에 알려주세요.'); return; }
+        email = String(r.dh.email || '').trim(); name = String(r.dh.name || '').trim();
+      } else {
+        const v = _sysConfig && _sysConfig[m.key];
+        email = v ? String(v.email || '').trim() : ''; name = v ? String(v.name || '').trim() : '';
+        role = m.key.replace(/^IT_/, '').replace(/_/g, ' ');
+        if (!email) { miss.push(role + ' (' + m.key + ')'); return; }
+      }
       const who = (name || email);
       if (me.includes(low(email))) { info.notes.push(role + ' ' + who + ' 님은 신청자 본인이라 결재자에서 제외했습니다.'); return; }
       if (a1 && low(email) === a1) { info.notes.push(role + ' ' + who + ' 님은 이미 1차 결재자라 한 번만 결재합니다.'); return; }
       if (seen.has(low(email))) { info.notes.push(role + ' ' + who + ' 님은 앞 단계와 같은 사람이라 한 번만 결재합니다.'); return; }
       seen.add(low(email));
-      auto.push({ uid: 'itauto-' + p + '-' + g.id + '-' + i, auto: g.id, tag: g.tag, key: k, role, dept: '', team: '', name: name || email, email });
+      auto.push({ uid: 'itauto-' + p + '-' + g.id + '-' + i, auto: m.id, tag: m.tag, key: m.key, role, dept: '', team: '', name: name || email, email });
     });
     if (miss.length) errs.push(g.what + ' 결재자 설정이 비어 있어 상신할 수 없습니다 — ' + miss.join(', ') + '. IT팀(stk_it@hyosung.com)에 알려주세요.');
   });
+  if (auto.length > IT_MAX_EXTRA)   // 여러 구분의 자동 결재자가 겹쳐 3명을 넘으면 — 티켓을 나누게 한다
+    errs.push('자동 지정 결재자가 ' + auto.length + '명으로 최대 ' + IT_MAX_EXTRA + '명을 넘습니다 — 요청을 나누어 티켓을 따로 신청해 주세요.');
   info.err = errs.join(' ');
   itExtra[p] = auto.concat(manual);
-  if (itExtra[p].length > IT_MAX_EXTRA)
+  if (auto.length <= IT_MAX_EXTRA && itExtra[p].length > IT_MAX_EXTRA)
     info.err = (info.err ? info.err + ' ' : '') + '추가 결재자는 자동 지정 포함 최대 ' + IT_MAX_EXTRA + '명입니다 — 직접 추가한 결재자를 ' + (itExtra[p].length - IT_MAX_EXTRA) + '명 「✕ 삭제」로 지워 주세요.';
   itAutoInfo[p] = info;
 }
@@ -2342,6 +2484,17 @@ function flexResolve(){
   const dh=flexByName(rec.boss2)||flexByName(rec.boss);   // 부서장이 없으면(본부장 본인) 직속 상사(대표)
   return {rec, tl, dh};
 }
+/* GUMS 재활성화 자동 결재자의 부서장(10-16) — 다른 APS 시스템(ACC-Others flexOrgPick · flexResolve)과 같은 HFS 조직도 규칙.
+   신청자 행에 Team Manager · Department Head · RD 중 하나라도 있으면 Department Head → '-' 이면 RD, 셋 다 비면(HFS 반영 전 파일) 예전 Boss of Boss → Boss.
+   IT Ticket 1차 결재자(Line Manager) 정하는 flexResolve 는 바꾸지 않는다. 못 찾으면 null(상신 차단). */
+function flexOrgPick(list){ for(const [col,v] of list){ const k=flexNorm(v); if(k && k!=='-') return {col, name:String(v).trim()}; } return {col:list[0][0], name:''}; }
+function flexDeptHead(){
+  const u = user; const me=[u&&u.email, u&&u.username].map(flexNorm).filter(Boolean);
+  const rec=flexEmp().find(e=>me.includes(flexNorm(e.email)))||null;
+  if(!rec) return null;
+  if(rec.tm || rec.dhd || rec.rdc){ const d=flexOrgPick([['Department Head',rec.dhd],['RD',rec.rdc]]); return flexByName(d.name); }
+  return flexByName(rec.boss2)||flexByName(rec.boss);
+}
 function applyFlexApprovers(){
   const u = user; if(!u) return;
   const nodata = !flexEmp().length;   // 명부를 못 읽었으면(네트워크 등) 직접 선택을 열어 둔다 — 예전과 같은 상태
@@ -2406,7 +2559,11 @@ async function submitTicket(prefix) {
   if (_exSame >= 0) return alert((_exSame + 2) + '차 추가 결재자(' + _exList[_exSame].name + ')는 ' + itExSameAs(prefix, _exList[_exSame]) + ' — 다른 결재자를 선택하거나 「✕ 삭제」로 지워 주세요.');
   const _sapErr = sapAcctCheck(prefix);   // SAP-Be1 요청 상세(10-16)
   if (_sapErr) return alert(_sapErr);
+  const _afsErr = afsCheck(prefix);   // Autofocus Access control(10-16)
+  if (_afsErr) return alert(_afsErr);
   const _sapBlock = sapAcctBlock(prefix);
+  const _afsBlocks = afsBlocks(prefix);
+  const _blocks = [_sapBlock].concat(_afsBlocks).filter(Boolean).join('\n\n');   // 저장 블록 전체(SAP → DMS → CRM)
 
   let detail = '';
   if (isInc) {
@@ -2444,7 +2601,7 @@ async function submitTicket(prefix) {
       fields.Workaround = document.getElementById('inc-workaround').value.trim();
     } else {
       // DueDate 항목 제거됨
-      fields.Detail = detail + (_sapBlock ? '\n\n' + _sapBlock : '');   // SAP-Be1 계정 상세 블록(10-16)
+      fields.Detail = detail + (_blocks ? '\n\n' + _blocks : '');   // 저장 블록(SAP-Be1 · Autofocus, 10-16)
       if (type === 'Change') {
         fields.ChangeType = document.getElementById('chg-change-type').value;
         fields.Impact = document.getElementById('chg-impact').value;
@@ -2490,7 +2647,7 @@ async function submitTicket(prefix) {
       const rt = v => v ? String(v).split('\n').map(l => '<div>' + (escHtml(l) || '<br>') + '</div>').join('') : '';
       const incPatchFields = [
         { IncOccurredAt: fields.IncOccurredAt },
-        { 'OccurredAt_x002c__x0020_Symptom_': rt(fields.Symptom) + (_sapBlock ? '<div><br></div>' + rt(_sapBlock) : '') },   // SAP-Be1 계정 상세 블록은 한 줄씩 감싼다(10-16)
+        { 'OccurredAt_x002c__x0020_Symptom_': rt(fields.Symptom) + (_blocks ? '<div><br></div>' + rt(_blocks) : '') },   // SAP-Be1 계정 상세 블록은 한 줄씩 감싼다(10-16)
         { 'Detail_x002c__x0020_ChangeType_x': rt(fields.Scope) },
         { Workaround: rt(fields.Workaround) },
       ];
@@ -2565,7 +2722,7 @@ async function submitTicket(prefix) {
       }});
     }
 
-    logChange('IT Ticket', '상신', () => (Object.assign({ 신청번호: Number(reqId), 제목: 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId, 유형: type, 우선순위: priority, 결재단계: approvers.length, 첨부: files.length }, _subs.length ? { 요청구분: _subs.map(x => x.sys + ': ' + x.opt).join('; ') } : {}, _sapBlock ? { SAP요청: _sapBlock.replace(/\n/g, ' | ') } : {}, _exList.some(x => x.auto) ? { 자동결재자: _exList.filter(x => x.auto).map(x => x.role + ' ' + x.name + ' <' + x.email + '>').join(', ') } : {})));   // 10-15 · 요청 구분 · CCTR 자동 결재자(10-16)
+    logChange('IT Ticket', '상신', () => (Object.assign({ 신청번호: Number(reqId), 제목: 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId, 유형: type, 우선순위: priority, 결재단계: approvers.length, 첨부: files.length }, _subs.length ? { 요청구분: _subs.map(x => x.sys + ': ' + x.opt).join('; ') } : {}, _sapBlock ? { SAP요청: _sapBlock.replace(/\n/g, ' | ') } : {}, _afsBlocks.length ? { Autofocus요청: _afsBlocks.map(b => b.replace(/\n/g, ' | ')).join(' || ') } : {}, _exList.some(x => x.auto) ? { 자동결재자: _exList.filter(x => x.auto).map(x => x.role + ' ' + x.name + ' <' + x.email + '>').join(', ') } : {})));   // 10-15 · 요청 구분 · CCTR 자동 결재자(10-16)
     showAlert('티켓이 등록되었습니다.', 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId);
     resetForm(prefix);
     switchTab('list');
@@ -3193,10 +3350,10 @@ async function showDetail(requestId) {
       if (f[k]) f[k] = stripHtml(f[k]);
     });
     // SAP-Be1 계정 요청 블록(10-16) — 상세 내용 끝의 「[SAP-Be1 · …]」 를 표로 따로 보여 주고 본문에서는 뺀다(블록 없는 예전 티켓은 그대로)
-    const _sapBlkK = sapBlockParse(f.Detail) ? 'Detail' : (sapBlockParse(f.Symptom) ? 'Symptom' : '');
-    const _sapBlk0 = _sapBlkK ? sapBlockParse(f[_sapBlkK]) : null;
-    const _sapBlk = _sapBlk0 && sysSubsOf(f.Systems).some(x => x.sys === SAP_SYS && x.opt === _sapBlk0.opt) ? _sapBlk0 : null;   // 대상 시스템에 같은 SAP-Be1 구분이 있을 때만 표로
-    if (_sapBlk) f[_sapBlkK] = (f[_sapBlkK].slice(0, _sapBlk.start) + f[_sapBlkK].slice(_sapBlk.end)).trim();
+    // 저장 블록(SAP-Be1 · Autofocus) — 대상 시스템에 같은 「시스템 (구분)」 이 있는 끝의 블록만 표로, 본문에서는 뺀다
+    const _blkK = blocksParse(f.Detail, f.Systems).length ? 'Detail' : (blocksParse(f.Symptom, f.Systems).length ? 'Symptom' : '');
+    const _blks = _blkK ? blocksParse(f[_blkK], f.Systems) : [];
+    if (_blks.length) f[_blkK] = f[_blkK].slice(0, _blks[0].start).trim();
     const sec = (t) => '<div style="margin:16px 0 8px;font-size:13px;font-weight:700;color:#1F4E79;padding:6px 10px;background:#EFF6FF;border-left:3px solid #1F4E79;border-radius:3px">' + t + '</div>';
     // 값에 HTML 을 의도적으로 넣는 자리(배지·linkify 결과)만 row 를 쓰고,
     // 사람이 입력한 텍스트는 rowT 로 이스케이프해서 넣는다.
@@ -3274,8 +3431,7 @@ async function showDetail(requestId) {
         : '<span class="badge-' + (function(s){var v=(s||'대기').trim();return v.indexOf('철회')===0?'철회':(v==='승인'?'승인완료':v);})(f.Status) + '">' + (f.Status||'대기') + '</span>') +
       rowT('대상 시스템', f.Systems) +
       (sysSubsOf(f.Systems).length ? row('요청 구분', sysSubsOf(f.Systems).map(x => escHtml(x.sys + ': ' + x.opt)).join('<br>')) : '') +   // 시스템별 요청 구분(10-16) — 구분 없는 예전 티켓은 줄 없음
-      (_sapBlk ? row('SAP-Be1 요청 상세', '<table class="sa-dl"><tr><th>Request<span>요청</span></th><td>' + escHtml(_sapBlk.opt) + ' · ' + escHtml(SAP_OPT_KO[_sapBlk.opt] || '') + '</td></tr>' +
-        _sapBlk.rows.map(r => '<tr><th>' + escHtml(r[0]) + '<span>' + escHtml(sapKeyKo(_sapBlk.opt, r[0])) + '</span></th><td>' + (r[0] === 'CCTR' ? r[1].split(/\s*;\s*/).map(escHtml).join('<br>') : (r[0] === 'Current approval line' || r[0] === 'Requested approval line') && / → /.test(r[1]) ? r[1].split(' → ').map((x, i) => (i + 1) + '. ' + escHtml(x)).join('<br>') : escHtml(r[1])) + '</td></tr>').join('') + '</table>') : '') +   // CCTR 은 한 줄에 하나
+      _blks.map(b => row(b.def.title, blkTable(b))).join('') +   // 블록마다 표 하나(10-16)
       row('등록일', f.RequestDate ? fmtDate(f.RequestDate) : '');
 
     const t = f.TicketType;
@@ -4364,11 +4520,20 @@ textarea.sa-input{resize:vertical;min-height:64px;line-height:1.5}
 .sa-summary{font-size:12px;color:#323130;background:#f7fbff;border:1px solid #d6e4f2;border-radius:6px;padding:6px 10px;margin:-2px 0 10px;line-height:1.6;overflow-wrap:anywhere}
 .sa-summary .k{font-size:10.5px;font-weight:700;color:#0b5fa5;text-transform:uppercase;letter-spacing:.3px;margin-right:2px}
 .sa-summary .arr{color:#8a8886;margin:0 6px}
-@media (max-width:640px){.sa-lvl-add{margin-left:0}.sa-2col{grid-template-columns:1fr}.sap-acct{padding:10px 10px 4px}.sa-same-text{margin-left:0}.sa-date{max-width:none}#app .sa-row select,#app .sa-row .appr-info input{height:36px}}
+.sa-lvl-add:disabled{color:#a19f9d;border-color:#dcdcdc;border-style:solid;cursor:default;background:#fff}
+.afs-period{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}   /* 시작일 ~ 종료일 한 줄(좁은 화면도 · 10-16) */
+.afs-period .sa-input{flex:1 1 0;max-width:200px;min-width:0}
+.afs-tilde{flex:none;color:#8a8886}
+.afs-contact{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:8px}
+.sa-help{font-size:11px;color:#8a8886;margin-top:5px;line-height:1.5}
+@media (max-width:640px){.afs-contact{grid-template-columns:1fr}.afs-period{gap:6px}.afs-period .sa-input{max-width:none;padding-left:8px;padding-right:6px;font-size:13px}.sa-lvl-add{margin-left:0}.sa-2col{grid-template-columns:1fr}.sap-acct{padding:10px 10px 4px}.sa-same-text{margin-left:0}.sa-date{max-width:none}#app .sa-row select,#app .sa-row .appr-info input{height:36px}}
 @media (max-width:640px){.sys-sub-opts{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.sys-sub-opt{min-height:40px;padding:6px 8px}}
 /* CCTR 자동 결재자 블록(10-16) — 읽기 전용, 지울 수 없음 */
 .appr-tag.cctr{color:#5c2e91;background:#efe6fa}
 .appr-tag.hr{color:#0d6a62;background:#dcf2ee}
+.appr-tag.dh{color:#7a4a00;background:#fbecd2}
+.line-step-badge.dh{background:#b5730d}
+.appr-block.appr-extra.appr-auto.appr-auto-dh{background:#fffaf2;border-color:#ecd3a8;border-left:3px solid #b5730d}
 .line-step-badge.hr{background:#15877b}
 .appr-block.appr-extra.appr-auto.appr-auto-hr{background:#f4fbf9;border-color:#bde3dc;border-left:3px solid #15877b}
 .line-step-badge.cctr{background:#8a5cc7}
