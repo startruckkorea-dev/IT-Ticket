@@ -1995,10 +1995,11 @@ function blkTable(b) {   // 상세 화면 표 하나
    값은 afsAcc[탭][시스템] 에 두고, 상신 때 「[STK Autofocus CRM · Access control]」 블록으로 상세 내용 끝에 붙인다. */
 const AFS_SYSTEMS = ['STK Autofocus DMS', 'STK Autofocus CRM'];
 const AFS_OPT = 'Access control';
-const AFS_BLOCK_KEYS = { 'Access period': '접근 허용 기간', 'Reason': '사유', 'Dealer': '담당 딜러사', 'Dealer contact': '딜러사 담당자 연락처' };
+const AFS_BLOCK_KEYS = { 'Access period': '접근 허용 기간', 'Reason': '사유', 'Dealer': '담당 딜러사', 'Dealer contact email': '딜러사 연락 메일',
+  'Dealer contact': '딜러사 담당자 연락처' };   // 'Dealer contact'(이름 / 메일 / 전화)는 예전 티켓 읽기 전용 — 개인정보 최소화로 새로 받지 않는다(10-16)
 const afsAcc = { inc: {}, chg: {} };
 function afsSet(p, sys, opt) {
-  afsAcc[p][sys] = opt === AFS_OPT ? { from: '', to: '', reason: '', dealer: '', cname: '', cemail: '', cphone: '' } : null;
+  afsAcc[p][sys] = opt === AFS_OPT ? { from: '', to: '', reason: '', dealer: '', cemail: '' } : null;
   afsRender(p, sys);
 }
 function afsRender(p, sys) {
@@ -2013,9 +2014,8 @@ function afsRender(p, sys) {
     '<div class="sa-row" data-k="reason">' + _sapLbl('Reason', '사유', true) +
       '<textarea class="sa-input" id="' + id + '-reason" rows="2" placeholder="Why is access needed? 접근이 필요한 이유" oninput="' + st + '.reason=this.value">' + escHtml(a.reason) + '</textarea></div>' +
     '<div class="sa-row" data-k="dealer">' + _sapLbl('Dealer', '담당 딜러사', true) + inp('dealer', 'text', 'Dealer name 딜러사명') + '</div>' +
-    '<div class="sa-row" data-k="contact">' + _sapLbl('Dealer contact', '딜러사 담당자 연락처', true) +
-      '<div class="afs-contact">' + inp('cname', 'text', 'Name 이름') + inp('cemail', 'email', 'Email 이메일') + inp('cphone', 'tel', 'Phone 전화번호') + '</div>' +
-      '<div class="sa-help">딜러사 연락처는 네트워크(접속 IP) 확인용으로 사용됩니다. · Used to verify the dealer network (access IP).</div></div>';
+    '<div class="sa-row" data-k="contact">' + _sapLbl('Dealer contact email', '딜러사 연락 메일', true) + inp('cemail', 'email', 'dealer@example.com') +
+      '<div class="sa-help">딜러사 메일은 네트워크(접속 IP) 확인 연락용으로만 사용됩니다. · Used only to contact the dealer to verify the network (access IP).</div></div>';
   box.hidden = false;
 }
 function afsFrom(p, sys, v) { const a = afsAcc[p][sys]; if (!a) return; a.from = v; const to = document.getElementById(p + '-afs-' + sysSlug(sys) + '-to'); if (to) { if (v) to.min = v; else to.removeAttribute('min'); } }
@@ -2027,10 +2027,8 @@ function afsCheck(p) {   // '' = 통과
     if (a.to < a.from) return P + 'Access period(접근 허용 기간) 종료일은 시작일과 같거나 뒤여야 합니다.';
     if (!a.reason.trim()) return P + 'Reason(사유)을 입력해주세요.';
     if (!a.dealer.trim()) return P + 'Dealer(담당 딜러사)를 입력해주세요.';
-    if (!a.cname.trim()) return P + 'Dealer contact(딜러사 담당자) 이름을 입력해주세요.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.cemail.trim())) return P + 'Dealer contact(딜러사 담당자) 이메일 형식을 확인해주세요.';
-    const ph = a.cphone.trim();
-    if (!/^[0-9+\-\s]+$/.test(ph) || (ph.match(/\d/g) || []).length < 7) return P + 'Dealer contact(딜러사 담당자) 전화번호 형식을 확인해주세요(숫자 · + · - · 공백, 7자리 이상).';
+    if (!a.cemail.trim()) return P + 'Dealer contact email(딜러사 연락 메일)을 입력해주세요.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.cemail.trim())) return P + 'Dealer contact email(딜러사 연락 메일) 형식을 확인해주세요.';
   }
   return '';
 }
@@ -2039,7 +2037,7 @@ function afsBlocks(p) {   // 시스템 순서(DMS → CRM)대로 블록 글자
   return AFS_SYSTEMS.filter(sys => afsAcc[p][sys] && itSubOf(p, sys) === AFS_OPT).map(sys => {
     const a = afsAcc[p][sys];
     return '[' + sys + ' · ' + AFS_OPT + ']\nAccess period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason) + '\nDealer: ' + one(a.dealer) +
-      '\nDealer contact: ' + [one(a.cname), one(a.cemail), one(a.cphone)].join(' / ');
+      '\nDealer contact email: ' + one(a.cemail);
   });
 }
 function syncNoticeBoxes() {
@@ -4524,9 +4522,8 @@ textarea.sa-input{resize:vertical;min-height:64px;line-height:1.5}
 .afs-period{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}   /* 시작일 ~ 종료일 한 줄(좁은 화면도 · 10-16) */
 .afs-period .sa-input{flex:1 1 0;max-width:200px;min-width:0}
 .afs-tilde{flex:none;color:#8a8886}
-.afs-contact{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:8px}
 .sa-help{font-size:11px;color:#8a8886;margin-top:5px;line-height:1.5}
-@media (max-width:640px){.afs-contact{grid-template-columns:1fr}.afs-period{gap:6px}.afs-period .sa-input{max-width:none;padding-left:8px;padding-right:6px;font-size:13px}.sa-lvl-add{margin-left:0}.sa-2col{grid-template-columns:1fr}.sap-acct{padding:10px 10px 4px}.sa-same-text{margin-left:0}.sa-date{max-width:none}#app .sa-row select,#app .sa-row .appr-info input{height:36px}}
+@media (max-width:640px){.afs-period{gap:6px}.afs-period .sa-input{max-width:none;padding-left:8px;padding-right:6px;font-size:13px}.sa-lvl-add{margin-left:0}.sa-2col{grid-template-columns:1fr}.sap-acct{padding:10px 10px 4px}.sa-same-text{margin-left:0}.sa-date{max-width:none}#app .sa-row select,#app .sa-row .appr-info input{height:36px}}
 @media (max-width:640px){.sys-sub-opts{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.sys-sub-opt{min-height:40px;padding:6px 8px}}
 /* CCTR 자동 결재자 블록(10-16) — 읽기 전용, 지울 수 없음 */
 .appr-tag.cctr{color:#5c2e91;background:#efe6fa}
