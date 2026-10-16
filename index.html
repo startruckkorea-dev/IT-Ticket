@@ -509,7 +509,7 @@ button[style*="display:none"]+.pdf-log-note,button[style*="display: none"]+.pdf-
   var av = document.getElementById('aps-av'), av2 = document.getElementById('aps-av2'), nm = document.getElementById('aps-acct-nm');
   function draw() {
     var full = ((src.querySelector('.hdr-user-name') || src).textContent || '').trim();
-    var en = full.match(/\(([A-Za-z][A-Za-z .'-]*)\)\s*$/);                 // 「… (Jimmy Lee)」
+    var en = full.match(/\(([A-Za-z][A-Za-z .'-]*)\)\s*$/);                 // 「… (Gildong Hong)」
     var latin = /^[A-Za-z]/.test(full);                                      // 영문만 있는 이름(John Smith) 은 앞 두 단어 · 두 글자 이니셜
     var short = en ? en[1].trim() : (latin ? full.split(/\s+/).slice(0, 2).join(' ') : (full.split(/\s+/)[0] || ''));
     var ini = (en || latin) ? short.split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase() : short.slice(0, 1);
