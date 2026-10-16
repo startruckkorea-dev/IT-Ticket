@@ -1996,26 +1996,34 @@ function blkTable(b) {   // 상세 화면 표 하나
 const AFS_SYSTEMS = ['STK Autofocus DMS', 'STK Autofocus CRM'];
 const AFS_OPT = 'Access control';
 const AFS_BLOCK_KEYS = { 'Access period': '접근 허용 기간', 'Reason': '사유', 'Dealer': '담당 딜러사', 'Dealer contact email': '딜러사 연락 메일',
-  'Dealer contact': '딜러사 담당자 연락처' };   // 'Dealer contact'(이름 / 메일 / 전화)는 예전 티켓 읽기 전용 — 개인정보 최소화로 새로 받지 않는다(10-16)
+  'Sales Agent': '담당 Sales Agent', 'Sales Agent contact email': 'Sales Agent 연락 메일',
+  'Dealer contact': '딜러사 담당자 연락처' };   // 두 시스템 키를 모두 읽는다 — 예전 CRM 티켓의 Dealer 키도 그대로 보인다
+// 시스템마다 상대방(10-16) — DMS 는 딜러사, CRM 은 Sales Agent. 칸 · 검사 · 저장 키가 이것을 따른다
+const AFS_PARTY = {
+  'STK Autofocus DMS': { key: 'Dealer', ko: '담당 딜러사', ph: 'Dealer name 딜러사명', mailKey: 'Dealer contact email', mailKo: '딜러사 연락 메일', mailPh: 'dealer@example.com',
+    help: '딜러사 메일은 네트워크(접속 IP) 확인 연락용으로만 사용됩니다. · Used only to contact the dealer to verify the network (access IP).' },
+  'STK Autofocus CRM': { key: 'Sales Agent', ko: '담당 Sales Agent', ph: 'Sales Agent name 이름 또는 업체명', mailKey: 'Sales Agent contact email', mailKo: 'Sales Agent 연락 메일', mailPh: 'agent@example.com',
+    help: 'Sales Agent 메일은 네트워크(접속 IP) 확인 연락용으로만 사용됩니다. · Used only to contact the Sales Agent to verify the network (access IP).' },
+};   // 'Dealer contact'(이름 / 메일 / 전화)는 예전 티켓 읽기 전용 — 개인정보 최소화로 새로 받지 않는다(10-16)
 const afsAcc = { inc: {}, chg: {} };
 function afsSet(p, sys, opt) {
-  afsAcc[p][sys] = opt === AFS_OPT ? { from: '', to: '', reason: '', dealer: '', cemail: '' } : null;
+  afsAcc[p][sys] = opt === AFS_OPT ? { from: '', to: '', reason: '', party: '', cemail: '' } : null;
   afsRender(p, sys);
 }
 function afsRender(p, sys) {
   const box = document.getElementById(p + '-afs-' + sysSlug(sys)); if (!box) return;
   const a = afsAcc[p][sys];
   if (!a) { box.hidden = true; box.innerHTML = ''; return; }
-  const id = p + '-afs-' + sysSlug(sys), st = 'afsAcc.' + p + '[\'' + sys + '\']';
+  const id = p + '-afs-' + sysSlug(sys), st = 'afsAcc.' + p + '[\'' + sys + '\']', Y = AFS_PARTY[sys];
   const inp = (k, type, ph, extra) => '<input type="' + type + '" class="sa-input" id="' + id + '-' + k + '" value="' + escHtml(a[k]) + '" placeholder="' + ph + '"' + (extra || '') + ' oninput="' + st + '.' + k + '=this.value">';
   box.innerHTML = '<div class="sa-head">' + escHtml(sys) + ' · Access control <span class="ko">접근 통제</span></div>' +
     '<div class="sa-row" data-k="period">' + _sapLbl('Access period', '접근 허용 기간', true) +
       '<div class="afs-period">' + inp('from', 'date', '', ' onchange="afsFrom(\'' + p + '\',\'' + sys + '\',this.value)"') + '<span class="afs-tilde">~</span>' + inp('to', 'date', '', a.from ? ' min="' + escHtml(a.from) + '"' : '') + '</div></div>' +
     '<div class="sa-row" data-k="reason">' + _sapLbl('Reason', '사유', true) +
       '<textarea class="sa-input" id="' + id + '-reason" rows="2" placeholder="Why is access needed? 접근이 필요한 이유" oninput="' + st + '.reason=this.value">' + escHtml(a.reason) + '</textarea></div>' +
-    '<div class="sa-row" data-k="dealer">' + _sapLbl('Dealer', '담당 딜러사', true) + inp('dealer', 'text', 'Dealer name 딜러사명') + '</div>' +
-    '<div class="sa-row" data-k="contact">' + _sapLbl('Dealer contact email', '딜러사 연락 메일', true) + inp('cemail', 'email', 'dealer@example.com') +
-      '<div class="sa-help">딜러사 메일은 네트워크(접속 IP) 확인 연락용으로만 사용됩니다. · Used only to contact the dealer to verify the network (access IP).</div></div>';
+    '<div class="sa-row" data-k="party">' + _sapLbl(Y.key, Y.ko, true) + inp('party', 'text', Y.ph) + '</div>' +
+    '<div class="sa-row" data-k="contact">' + _sapLbl(Y.mailKey, Y.mailKo, true) + inp('cemail', 'email', Y.mailPh) +
+      '<div class="sa-help">' + escHtml(Y.help) + '</div></div>';
   box.hidden = false;
 }
 function afsFrom(p, sys, v) { const a = afsAcc[p][sys]; if (!a) return; a.from = v; const to = document.getElementById(p + '-afs-' + sysSlug(sys) + '-to'); if (to) { if (v) to.min = v; else to.removeAttribute('min'); } }
@@ -2026,9 +2034,10 @@ function afsCheck(p) {   // '' = 통과
     if (!a.from || !a.to) return P + 'Access period(접근 허용 기간) 시작일과 종료일을 입력해주세요.';
     if (a.to < a.from) return P + 'Access period(접근 허용 기간) 종료일은 시작일과 같거나 뒤여야 합니다.';
     if (!a.reason.trim()) return P + 'Reason(사유)을 입력해주세요.';
-    if (!a.dealer.trim()) return P + 'Dealer(담당 딜러사)를 입력해주세요.';
-    if (!a.cemail.trim()) return P + 'Dealer contact email(딜러사 연락 메일)을 입력해주세요.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.cemail.trim())) return P + 'Dealer contact email(딜러사 연락 메일) 형식을 확인해주세요.';
+    const Y = AFS_PARTY[sys];
+    if (!a.party.trim()) return P + Y.key + '(' + Y.ko + ')를 입력해주세요.';
+    if (!a.cemail.trim()) return P + Y.mailKey + '(' + Y.mailKo + ')을 입력해주세요.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.cemail.trim())) return P + Y.mailKey + '(' + Y.mailKo + ') 형식을 확인해주세요.';
   }
   return '';
 }
@@ -2036,8 +2045,9 @@ function afsBlocks(p) {   // 시스템 순서(DMS → CRM)대로 블록 글자
   const one = x => String(x || '').replace(/\s*\n+\s*/g, ' / ').trim();
   return AFS_SYSTEMS.filter(sys => afsAcc[p][sys] && itSubOf(p, sys) === AFS_OPT).map(sys => {
     const a = afsAcc[p][sys];
-    return '[' + sys + ' · ' + AFS_OPT + ']\nAccess period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason) + '\nDealer: ' + one(a.dealer) +
-      '\nDealer contact email: ' + one(a.cemail);
+    const Y = AFS_PARTY[sys];
+    return '[' + sys + ' · ' + AFS_OPT + ']\nAccess period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason) + '\n' + Y.key + ': ' + one(a.party) +
+      '\n' + Y.mailKey + ': ' + one(a.cemail);
   });
 }
 function syncNoticeBoxes() {
