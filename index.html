@@ -1093,7 +1093,7 @@ const SAP_SYS = 'STK SAP-Be1';
 const SAP_SUBS = ['Account creation', 'Account change', 'GR cancellation', 'Password issue(change, login)', 'CCTR approval line', 'Approval delegation', 'Other'];
 const SAP_CCTR = 'CCTR approval line';
 const SAP_CCTR_KEYS = ['IT_Controlling_Admin', 'IT_Controlling_Manager'];   // 순서 = 결재 순서
-const SAP_HR_KEYS = ['IT_HR_Admin', 'IT_HR_Manager'];   // Account change 의 Activation · Deactivation — 순서 = 결재 순서
+const SAP_HR_KEYS = ['IT_HR_Admin', 'IT_HR_Manager'];   // Account change 의 Re-activation — 순서 = 결재 순서
 const SYSTEM_SUBS = {
   'STK APS':             ['Approval line change', 'Access / Permission', 'Approval delegation', 'Error / Bug', 'Feature change request', 'Other'],
   'STK WMC':             ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
@@ -1119,7 +1119,7 @@ const SYSTEM_SUBS_EXCLUDE = { chg: ['Error / Bug', 'Connection issue', 'Ticket /
 // 목록에서 빠졌지만 예전 티켓에 저장돼 있을 수 있는 시스템 · 구분 — 저장값 해석에만 쓴다(화면 선택지에는 없음)
 const SYSTEMS_LEGACY = ['STK RAS', 'STK Intra CV'];   // 더 쓰지 않는 시스템 — 예전 티켓의 대상 시스템 글자는 그대로 보인다
 const SYSTEM_SUBS_LEGACY = {
-  'STK SAP-Be1':  ['Account activation', 'Account deactivation'],   // Account change 의 Activation · Deactivation 으로 옮김
+  'STK SAP-Be1':  ['Account activation', 'Account deactivation'],   // Account change 의 Re-activation · Deactivation 으로 옮김
   'STK RAS':      ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
   'STK Intra CV': ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
   'SharePoint':   ['Site / Library access', 'New site / List request', 'File recovery', 'OneDrive sync issue'],
@@ -1658,7 +1658,7 @@ function onSysSub(r) {
      못 읽으면 직접 입력 칸 + 경고.
    · 새 열 없이 상세 내용 칸(Change/Request: Detail · Incident/Problem: 증상 설명) 끝에 「[SAP-Be1 · …]」 블록으로 붙여 저장한다.
      상세 화면은 이 블록을 읽어 표로 보여 준다(sapBlockParse) — 블록이 없는 예전 티켓은 그대로.
-   · Account change 의 Activation · Deactivation 은 HR 승인이 필요해 설정 파일의 IT_HR_Admin → IT_HR_Manager 를 추가 결재자로 자동으로 넣는다(IT_AUTO_GROUPS).
+   · Account change 의 Re-activation 은 HR 승인이 필요해 설정 파일의 IT_HR_Admin → IT_HR_Manager 를 추가 결재자로 자동으로 넣는다(IT_AUTO_GROUPS).
    · 예전 구분 Account activation · Account deactivation 블록도 읽기만 한다(SAP_OPT_KO · SAP_BLOCK_KEYS). */
 const SAP_ACCT = {   // 입력 칸이 있는 구분
   'Account creation':   { ko: '계정 생성' },
@@ -1669,12 +1669,12 @@ const SAP_OPT_KO = { 'Account creation': '계정 생성', 'Account change': '계
   'Account activation': '계정 활성화', 'Account deactivation': '계정 비활성화' };   // 저장 블록 머리(예전 구분 포함)
 const SAP_ACT_REASONS = ['Return from leave', 'Rejoined', 'Re-enable after deactivation', 'Other'];
 const SAP_DEACT_REASONS = ['Resignation', 'Transfer', 'Long-term leave', 'Other'];
-const SAP_CHG_ITEMS = ['CCTR', 'Higher-level approver', 'Authorization / Role', 'Activation', 'Deactivation', 'Other'];
-const SAP_CHG_DETAIL_ITEMS = ['CCTR', 'Higher-level approver', 'Authorization / Role', 'Other'];   // 이 중 하나라도 고르면 Change details 필수
+const SAP_CHG_ITEMS = ['Re-activation', 'Deactivation', 'Authorization / Role', 'Other'];   // Re-activation · Deactivation 은 서로 배타(10-16 9차 — CCTR · 승인권자 · 동일 권한은 Account change 에서 뺐다)
+const SAP_CHG_DETAIL_ITEMS = ['Authorization / Role', 'Other'];   // 이 중 하나라도 고르면 Change details 필수
 const SAP_MAX_LVL = 3;
 const SAP_SAME_TEXT = '위 정보 확인이 어려우신 경우, 현재 팀에서 사용 중인 다른 직원의 SAP Be1 계정과 동일한 권한으로 설정할 수 있습니다. 해당 직원분의 성함을 선택해 주시면 동일한 권한으로 설정하겠습니다.';
 const SAP_BLOCK_KEYS = { 'Target user': '대상 사용자', 'What to change': '변경 항목', 'CCTR': 'PO 생성 및 GR 처리 CCTR', 'Higher-level approver': '상위 승인권자',
-  'Change details': '변경 내용', 'Activation reason': '활성화 사유', 'Deactivation effective date': '비활성화 적용일', 'Deactivation reason': '비활성화 사유',
+  'Change details': '변경 내용', 'Re-activation reason': '재활성화 사유', 'Activation reason': '활성화 사유', 'Deactivation effective date': '비활성화 적용일', 'Deactivation reason': '비활성화 사유',
   'Current approval line': '현재 결재 라인', 'Requested approval line': '변경 요청 결재 라인',
   'Same access as': '동일 권한 기준 직원', 'Effective date': '적용일', 'Reason': '사유', 'Note': '메모' };
 function sapKeyKo(opt, k) {   // 같은 키라도 CCTR approval line 에서는 뜻이 조금 다르다
@@ -1784,14 +1784,14 @@ function sapCctrAdd(p, code) {
   const q = document.getElementById(p + '-sap-cctrq'); if (q) q.focus();
 }
 function sapCctrDel(p, i) { const a = sapAcct[p]; if (!a) return; a.cctr.splice(i, 1); sapAcctRender(p); }
-function sapHasActDe(a) { return !!a && a.opt === 'Account change' && (a.items.includes('Activation') || a.items.includes('Deactivation')); }
-function sapChgItem(p, it, on) {   // Activation · Deactivation 은 둘 중 하나만 — 바뀌면 사유 · 적용일 · 메모를 비운다. HR 자동 결재자도 다시 맞춘다
+function sapHasReact(a) { return !!a && a.opt === 'Account change' && a.items.includes('Re-activation'); }   // HR 승인은 Re-activation 만
+function sapChgItem(p, it, on) {   // Re-activation · Deactivation 은 둘 중 하나만 — 바뀌면 사유 · 적용일 · 메모를 비운다. HR 자동 결재자도 다시 맞춘다
   const a = sapAcct[p]; if (!a) return;
-  const was = a.items.join('|'), hadAct = a.items.includes('Activation'), hadDe = a.items.includes('Deactivation');
+  const was = a.items.join('|'), hadAct = a.items.includes('Re-activation'), hadDe = a.items.includes('Deactivation');
   let items = a.items.filter(x => x !== it);
-  if (on) { items.push(it); if (it === 'Activation') items = items.filter(x => x !== 'Deactivation'); if (it === 'Deactivation') items = items.filter(x => x !== 'Activation'); }
+  if (on) { items.push(it); if (it === 'Re-activation') items = items.filter(x => x !== 'Deactivation'); if (it === 'Deactivation') items = items.filter(x => x !== 'Re-activation'); }
   a.items = SAP_CHG_ITEMS.filter(x => items.includes(x));
-  if (hadAct !== a.items.includes('Activation') || hadDe !== a.items.includes('Deactivation')) { a.reason = ''; a.date = ''; a.note = ''; }
+  if (hadAct !== a.items.includes('Re-activation') || hadDe !== a.items.includes('Deactivation')) { a.reason = ''; a.date = ''; a.note = ''; }
   sapAcctRender(p);
   if (was !== a.items.join('|')) itRenderApprLine(p);
 }
@@ -1823,9 +1823,9 @@ function _sapLevels(p, list, en, ko) {
 function sapAcctRender(p) {
   const box = document.getElementById(p + '-sap-acct'), nt = document.getElementById(p + '-sap-notice'); if (!box) return;
   const a = sapAcct[p];
-  // 빨간 안내 — CCTR approval line 이거나 Account change 의 Activation · Deactivation 일 때만, 상세 칸 바로 아래
+  // 빨간 안내 — CCTR approval line 이거나 Account change 의 Re-activation 일 때만, 상세 칸 바로 아래
   const notice = !a ? '' : a.opt === SAP_CCTR ? '<b>CCTR approval line</b> requests require additional approval from the Controlling team.'
-    : sapHasActDe(a) ? '<b>Account activation / deactivation</b> requests require additional approval from the HR team.' : '';
+    : sapHasReact(a) ? '<b>Account activation / deactivation</b> requests require additional approval from the HR team.' : '';
   if (nt) { nt.innerHTML = notice ? SAP_WARN_SVG + '<span>' + notice + '</span>' : ''; nt.hidden = !notice; }
   if (!a) { box.hidden = true; box.innerHTML = ''; return; }
   const sameNote = a.same ? '기준 직원과 동일하게 설정 — 선택 사항' : '';
@@ -1833,20 +1833,18 @@ function sapAcctRender(p) {
   if (a.opt === 'Account creation') {
     h += _sapCctr(p, !a.same, sameNote) + _sapPicker(p, 'appr', 'Higher-level approver', '상위 승인권자', !a.same, sameNote) + _sapSame(p);
   } else if (a.opt === 'Account change') {
-    const act = a.items.includes('Activation'), de = a.items.includes('Deactivation'), needD = a.items.some(x => SAP_CHG_DETAIL_ITEMS.includes(x)) || !a.items.length;
+    const act = a.items.includes('Re-activation'), de = a.items.includes('Deactivation'), needD = a.items.some(x => SAP_CHG_DETAIL_ITEMS.includes(x)) || !a.items.length;
     h += '<div class="sa-row" data-k="items">' + _sapLbl('What to change', '변경 항목', true) + '<div class="sa-checks">' + SAP_CHG_ITEMS.map(it =>
         '<label class="sa-check' + (a.items.includes(it) ? ' checked' : '') + '"><input type="checkbox" value="' + escHtml(it) + '"' + (a.items.includes(it) ? ' checked' : '') +
         ' onchange="sapChgItem(\'' + p + '\',this.value,this.checked)"> ' + escHtml(it) + '</label>').join('') + '</div></div>';
-    if (a.items.includes('CCTR')) h += _sapCctr(p, !a.same, sameNote);
-    if (a.items.includes('Higher-level approver')) h += _sapPicker(p, 'appr', 'Higher-level approver', '상위 승인권자', !a.same, sameNote);
     if (de) h += '<div class="sa-row" data-k="date">' + _sapLbl('Deactivation effective date', '비활성화 적용일', true) +
       '<input type="date" class="sa-input sa-date" id="' + p + '-sap-date" value="' + escHtml(a.date) + '" onchange="sapAcct.' + p + '.date=this.value"></div>';
-    if (act || de) h += '<div class="sa-row sa-2col" data-k="reason"><div>' + (act ? _sapLbl('Activation reason', '활성화 사유', true) : _sapLbl('Deactivation reason', '비활성화 사유', true)) +
+    if (act || de) h += '<div class="sa-row sa-2col" data-k="reason"><div>' + (act ? _sapLbl('Re-activation reason', '재활성화 사유', true) : _sapLbl('Deactivation reason', '비활성화 사유', true)) +
         '<select class="sa-input" id="' + p + '-sap-reason" onchange="sapAcct.' + p + '.reason=this.value"><option value="">-- Select 선택 --</option>' +
         (act ? SAP_ACT_REASONS : SAP_DEACT_REASONS).map(r => '<option value="' + escHtml(r) + '"' + (r === a.reason ? ' selected' : '') + '>' + escHtml(r) + '</option>').join('') + '</select></div>' +
       '<div>' + _sapLbl('Note', '메모', false) + '<input type="text" class="sa-input" id="' + p + '-sap-note" value="' + escHtml(a.note) + '" placeholder="Optional 선택 입력" oninput="sapAcct.' + p + '.note=this.value"></div></div>';
     h += '<div class="sa-row" data-k="details">' + _sapLbl('Change details', '변경 내용', needD) +
-      '<textarea class="sa-input" id="' + p + '-sap-details" rows="3" placeholder="Describe what should change 변경할 내용을 적어 주세요" oninput="sapAcct.' + p + '.details=this.value">' + escHtml(a.details) + '</textarea></div>' + _sapSame(p);
+      '<textarea class="sa-input" id="' + p + '-sap-details" rows="3" placeholder="Describe what should change 변경할 내용을 적어 주세요" oninput="sapAcct.' + p + '.details=this.value">' + escHtml(a.details) + '</textarea></div>';   // 동일 권한은 Account creation 에만
   } else if (a.opt === SAP_CCTR) {
     h += _sapCctr(p, false, '', 'Applicable CCTR', '적용 CCTR') +
       _sapLevels(p, 'cur', 'Current approval line', '현재 결재 라인') +
@@ -1873,16 +1871,16 @@ function sapAcctCheck(p) {   // 상신 전 검사 — 빠진 칸 하나를 알�
     return '';
   }
   if (a.opt === 'Account change' && !a.items.length) return P + 'What to change(변경 항목)를 선택해주세요.';
-  const needC = a.opt === 'Account creation' || a.items.includes('CCTR'), needA = a.opt === 'Account creation' || a.items.includes('Higher-level approver');
+  const needC = a.opt === 'Account creation', needA = a.opt === 'Account creation';
   if (needC && !a.same && !hasCctr) return P + 'CCTR(PO 생성 및 GR 처리에 필요한 CCTR)을 ' + (_cctrState === 'fail' ? '입력' : '선택') + '해주세요.';
   if (needA && !a.same && !a.appr.email) return P + 'Higher-level approver(상위 승인권자)를 선택해주세요.';
   if (a.opt === 'Account change') {
     if (a.items.includes('Deactivation') && !a.date) return P + 'Deactivation effective date(비활성화 적용일)를 입력해주세요.';
-    if (a.items.includes('Activation') && !a.reason) return P + 'Activation reason(활성화 사유)을 선택해주세요.';
+    if (a.items.includes('Re-activation') && !a.reason) return P + 'Re-activation reason(재활성화 사유)을 선택해주세요.';
     if (a.items.includes('Deactivation') && !a.reason) return P + 'Deactivation reason(비활성화 사유)을 선택해주세요.';
     if (a.items.some(x => SAP_CHG_DETAIL_ITEMS.includes(x)) && !a.details.trim()) return P + 'Change details(변경 내용)를 입력해주세요.';
   }
-  if (a.same && !a.ref.email) return P + 'Reference user(기준 직원)를 선택해주세요.';
+  if (a.opt === 'Account creation' && a.same && !a.ref.email) return P + 'Reference user(기준 직원)를 선택해주세요.';
   return '';
 }
 function sapAcctBlock(p) {   // 저장 블록 — 「[SAP-Be1 · Account creation]」 + 「키: 값」 줄
@@ -1893,16 +1891,14 @@ function sapAcctBlock(p) {   // 저장 블록 — 「[SAP-Be1 · Account creatio
   const L = [['Target user', who(a.target)]];
   if (a.opt === 'Account creation') L.push(['CCTR', cctr], ['Higher-level approver', who(a.appr)]);
   if (a.opt === 'Account change') {
-    const act = a.items.includes('Activation'), de = a.items.includes('Deactivation');
+    const act = a.items.includes('Re-activation'), de = a.items.includes('Deactivation');
     L.push(['What to change', a.items.join(', ')]);
-    if (a.items.includes('CCTR')) L.push(['CCTR', cctr]);
-    if (a.items.includes('Higher-level approver')) L.push(['Higher-level approver', who(a.appr)]);
     L.push(['Change details', one(a.details)]);
-    if (act) L.push(['Activation reason', a.reason]);
+    if (act) L.push(['Re-activation reason', a.reason]);
     if (de) L.push(['Deactivation effective date', a.date], ['Deactivation reason', a.reason]);
     if (act || de) L.push(['Note', one(a.note)]);
   }
-  if ((a.opt === 'Account creation' || a.opt === 'Account change') && a.same) L.push(['Same access as', who(a.ref)]);
+  if (a.opt === 'Account creation' && a.same) L.push(['Same access as', who(a.ref)]);
   if (a.opt === SAP_CCTR) {
     L.push(['CCTR', cctr], ['Current approval line', a.curNone ? 'Not set' : a.cur.filter(v => v.email).map(who).join(' → ')],
       ['Requested approval line', a.req.filter(v => v.email).map(who).join(' → ')], ['Effective date', a.date], ['Reason', one(a.why)]);
@@ -2136,10 +2132,10 @@ let _itExSeq = 0;
    · 신청자 본인 · 1차 결재자와 같은 사람, 두 키가 같은 사람이면 한 번만(또는 빼고) 넣고 안내한다.
    · 설정 값이 비어 있으면 넣지 않고 경고 — 상신을 막는다(필수 결재자 누락 방지). */
 const itAutoInfo = { inc: { notes: [], err: '' }, chg: { notes: [], err: '' } };
-// 자동 결재자 묶음 — CCTR approval line → Controlling, Account change 의 Activation · Deactivation → HR. 사람은 설정 파일에서만 정한다.
+// 자동 결재자 묶음 — CCTR approval line → Controlling, Account change 의 Re-activation → HR. 사람은 설정 파일에서만 정한다.
 const IT_AUTO_GROUPS = [
   { id: 'cctr', tag: 'CCTR', what: 'CCTR approval line', keys: SAP_CCTR_KEYS, on: p => itSapSub(p) === SAP_CCTR },
-  { id: 'hr',   tag: 'HR',   what: 'Account activation / deactivation', keys: SAP_HR_KEYS, on: p => itSapSub(p) === 'Account change' && sapHasActDe(sapAcct[p]) },
+  { id: 'hr',   tag: 'HR',   what: 'Account re-activation', keys: SAP_HR_KEYS, on: p => itSapSub(p) === 'Account change' && sapHasReact(sapAcct[p]) },   // Re-activation 만(Deactivation 은 HR 승인 없음)
 ];
 function itSyncAuto(p) {
   const manual = (itExtra[p] || []).filter(x => !x.auto);
