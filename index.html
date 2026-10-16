@@ -1090,9 +1090,10 @@ const SYSTEMS = [
    구분 값에 「;」 를 쓰지 않는다(Excel 이 ; 로 나눈다).
    STK SAP-Be1 「CCTR approval line」 이면 설정 파일(system_config)의 IT_Controlling_Admin → IT_Controlling_Manager 를 추가 결재자로 자동으로 넣는다(사람은 설정 파일에서만 정한다). */
 const SAP_SYS = 'STK SAP-Be1';
-const SAP_SUBS = ['Account creation', 'Account change', 'Account activation', 'Account deactivation', 'GR cancellation', 'Password issue(change, login)', 'CCTR approval line', 'Approval delegation', 'Other'];
+const SAP_SUBS = ['Account creation', 'Account change', 'GR cancellation', 'Password issue(change, login)', 'CCTR approval line', 'Approval delegation', 'Other'];
 const SAP_CCTR = 'CCTR approval line';
 const SAP_CCTR_KEYS = ['IT_Controlling_Admin', 'IT_Controlling_Manager'];   // 순서 = 결재 순서
+const SAP_HR_KEYS = ['IT_HR_Admin', 'IT_HR_Manager'];   // Account change 의 Activation · Deactivation — 순서 = 결재 순서
 const SYSTEM_SUBS = {
   'STK APS':             ['Approval line change', 'Access / Permission', 'Approval delegation', 'Error / Bug', 'Feature change request', 'Other'],
   'STK WMC':             ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
@@ -1118,6 +1119,7 @@ const SYSTEM_SUBS_EXCLUDE = { chg: ['Error / Bug', 'Connection issue', 'Ticket /
 // 목록에서 빠졌지만 예전 티켓에 저장돼 있을 수 있는 시스템 · 구분 — 저장값 해석에만 쓴다(화면 선택지에는 없음)
 const SYSTEMS_LEGACY = ['STK RAS', 'STK Intra CV'];   // 더 쓰지 않는 시스템 — 예전 티켓의 대상 시스템 글자는 그대로 보인다
 const SYSTEM_SUBS_LEGACY = {
+  'STK SAP-Be1':  ['Account activation', 'Account deactivation'],   // Account change 의 Activation · Deactivation 으로 옮김
   'STK RAS':      ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
   'STK Intra CV': ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
   'SharePoint':   ['Site / Library access', 'New site / List request', 'File recovery', 'OneDrive sync issue'],
@@ -1616,7 +1618,7 @@ function initSysGrid(gridId) {
             '<label class="sys-sub-opt"><input type="radio" name="' + gridId + '-sub-' + sysSlug(s) + '" value="' + escHtml(o) + '" onchange="onSysSub(this)"> ' + escHtml(o) + '</label>').join('') +
           '</div>' +
           (s === SAP_SYS ? '<div class="sap-acct" id="' + gridId.replace(/-sys-grid$/, '') + '-sap-acct" hidden></div>' : '') +   // 계정 요청 상세(10-16)
-          (s === SAP_SYS ? '<div class="sys-sub-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><b>CCTR approval line</b> requests require additional approval from the Controlling team.</span></div>' : '') +
+          (s === SAP_SYS ? '<div class="sys-sub-hint sap-notice" id="' + gridId.replace(/-sys-grid$/, '') + '-sap-notice" role="note" hidden></div>' : '') +   // 빨간 안내 — 고른 구분에 따라 sapAcctRender 가 채운다
         '</div>'
       : '')
   ).join('');
@@ -1649,29 +1651,46 @@ function onSysSub(r) {
   }
 }
 
-/* ══ STK SAP-Be1 계정 요청 상세(10-16) ══
-   Account creation · change · activation · deactivation 을 고르면 SAP-Be1 구분 칸 안에 그 구분의 입력 칸을 연다.
+/* ══ STK SAP-Be1 요청 상세(10-16) ══
+   Account creation · Account change · CCTR approval line 을 고르면 SAP-Be1 구분 칸 안에 그 구분의 입력 칸을 연다.
    · 값은 DOM 이 아니라 sapAcct[탭] 에 둔다(추가 결재자와 같은 방식) — 다시 그려도 유지, 탭끼리 섞이지 않는다.
    · 직원 선택은 추가 결재자와 같은 부서 → 팀 → 직원. CCTR 은 ACC Voucher 와 같은 acc_cctr_list.xlsx(Team 시트, 읽기 전용)를 쓴다.
      못 읽으면 직접 입력 칸 + 경고.
    · 새 열 없이 상세 내용 칸(Change/Request: Detail · Incident/Problem: 증상 설명) 끝에 「[SAP-Be1 · …]」 블록으로 붙여 저장한다.
-     상세 화면은 이 블록을 읽어 표로 보여 준다(sapBlockParse) — 블록이 없는 예전 티켓은 그대로. */
-const SAP_ACCT = {
-  'Account creation':     { ko: '계정 생성' },
-  'Account change':       { ko: '계정 변경' },
-  'Account activation':   { ko: '계정 활성화',   reasons: ['Return from leave', 'Rejoined', 'Re-enable after deactivation', 'Other'] },
-  'Account deactivation': { ko: '계정 비활성화', reasons: ['Resignation', 'Transfer', 'Long-term leave', 'Other'] },
+     상세 화면은 이 블록을 읽어 표로 보여 준다(sapBlockParse) — 블록이 없는 예전 티켓은 그대로.
+   · Account change 의 Activation · Deactivation 은 HR 승인이 필요해 설정 파일의 IT_HR_Admin → IT_HR_Manager 를 추가 결재자로 자동으로 넣는다(IT_AUTO_GROUPS).
+   · 예전 구분 Account activation · Account deactivation 블록도 읽기만 한다(SAP_OPT_KO · SAP_BLOCK_KEYS). */
+const SAP_ACCT = {   // 입력 칸이 있는 구분
+  'Account creation':   { ko: '계정 생성' },
+  'Account change':     { ko: '계정 변경' },
+  'CCTR approval line': { ko: 'CCTR 결재 라인' },
 };
-const SAP_CHG_ITEMS = ['CCTR', 'Higher-level approver', 'Authorization / Role', 'Other'];
+const SAP_OPT_KO = { 'Account creation': '계정 생성', 'Account change': '계정 변경', 'CCTR approval line': 'CCTR 결재 라인',
+  'Account activation': '계정 활성화', 'Account deactivation': '계정 비활성화' };   // 저장 블록 머리(예전 구분 포함)
+const SAP_ACT_REASONS = ['Return from leave', 'Rejoined', 'Re-enable after deactivation', 'Other'];
+const SAP_DEACT_REASONS = ['Resignation', 'Transfer', 'Long-term leave', 'Other'];
+const SAP_CHG_ITEMS = ['CCTR', 'Higher-level approver', 'Authorization / Role', 'Activation', 'Deactivation', 'Other'];
+const SAP_CHG_DETAIL_ITEMS = ['CCTR', 'Higher-level approver', 'Authorization / Role', 'Other'];   // 이 중 하나라도 고르면 Change details 필수
+const SAP_MAX_LVL = 3;
 const SAP_SAME_TEXT = '위 정보 확인이 어려우신 경우, 현재 팀에서 사용 중인 다른 직원의 SAP Be1 계정과 동일한 권한으로 설정할 수 있습니다. 해당 직원분의 성함을 선택해 주시면 동일한 권한으로 설정하겠습니다.';
 const SAP_BLOCK_KEYS = { 'Target user': '대상 사용자', 'What to change': '변경 항목', 'CCTR': 'PO 생성 및 GR 처리 CCTR', 'Higher-level approver': '상위 승인권자',
-  'Change details': '변경 내용', 'Same access as': '동일 권한 기준 직원', 'Effective date': '적용일', 'Reason': '사유', 'Note': '메모' };
+  'Change details': '변경 내용', 'Activation reason': '활성화 사유', 'Deactivation effective date': '비활성화 적용일', 'Deactivation reason': '비활성화 사유',
+  'Current approval line': '현재 결재 라인', 'Requested approval line': '변경 요청 결재 라인',
+  'Same access as': '동일 권한 기준 직원', 'Effective date': '적용일', 'Reason': '사유', 'Note': '메모' };
+function sapKeyKo(opt, k) {   // 같은 키라도 CCTR approval line 에서는 뜻이 조금 다르다
+  if (opt === SAP_CCTR && k === 'CCTR') return '적용 CCTR';
+  if (opt === SAP_CCTR && k === 'Effective date') return '적용 희망일';
+  if (opt === SAP_CCTR && k === 'Reason') return '변경 사유';
+  return SAP_BLOCK_KEYS[k] || '';
+}
+const SAP_WARN_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 const sapAcct = { inc: null, chg: null };
 let _cctrList = null, _cctrState = '';   // '' · loading · ok · fail
 const _sapEmp = () => ({ dept: '', team: '', name: '', email: '' });
 function sapAcctSet(p, opt) {
-  sapAcct[p] = SAP_ACCT[opt] ? { opt, target: _sapEmp(), appr: _sapEmp(), ref: _sapEmp(), cctr: [], cctrFree: '', same: false, items: [], details: '', reason: '', note: '', date: '' } : null;
-  if (sapAcct[p] && (opt === 'Account creation' || opt === 'Account change')) loadCctrList();
+  sapAcct[p] = SAP_ACCT[opt] ? { opt, target: _sapEmp(), appr: _sapEmp(), ref: _sapEmp(), cctr: [], cctrFree: '', same: false, items: [], details: '',
+    reason: '', note: '', date: '', cur: [_sapEmp()], curNone: false, req: [_sapEmp()], why: '' } : null;
+  if (sapAcct[p]) loadCctrList();
   sapAcctRender(p);
 }
 async function loadCctrList() {   // ACC Voucher loadCCTRMaster 와 같은 파일 · 같은 읽기(Team 시트, 4행부터 r[0]=이름 · r[1]=8자리 코드)
@@ -1703,31 +1722,35 @@ async function loadCctrList() {   // ACC Voucher loadCCTRMaster 와 같은 파�
   ['inc', 'chg'].forEach(p => { if (sapAcct[p]) sapAcctRender(p); });
 }
 function _sapLbl(en, ko, req) { return '<div class="sa-label">' + en + ' <span class="ko">' + ko + '</span>' + (req ? ' <span class="req">*</span>' : '') + '</div>'; }
-function _sapPicker(p, key, en, ko, req, note) {
-  const v = sapAcct[p][key], id = p + '-sap-' + key;
+function _sapSlot(a, key) { const m = /^(cur|req)(\d)$/.exec(key); return m ? a[m[1]][+m[2]] : a[key]; }   // target · appr · ref · cur0~2 · req0~2
+function _sapSelects(p, key, v) {
+  const id = p + '-sap-' + key;
   const o = (val, txt, sel) => '<option value="' + escHtml(val) + '"' + (sel ? ' selected' : '') + '>' + escHtml(txt) + '</option>';
   const depts = [...new Set(employeeData.map(e => e.dept))].sort();
   const teams = v.dept ? [...new Set(employeeData.filter(e => e.dept === v.dept).map(e => e.team))].sort() : [];
   const people = v.team ? employeeData.filter(e => e.dept === v.dept && e.team === v.team) : [];
   const h = lvl => 'onchange="sapPick(\'' + p + '\',\'' + key + '\',\'' + lvl + '\',this.value)"';
-  return '<div class="sa-row" data-k="' + key + '">' + _sapLbl(en, ko, req) + (note ? '<div class="sa-note">' + escHtml(note) + '</div>' : '') +
-    '<div class="appr-select-row">' +
+  return '<div class="appr-select-row">' +
       '<select id="' + id + '-dept" ' + h('dept') + '>' + o('', '부서', !v.dept) + depts.map(d => o(d, d, d === v.dept)).join('') + '</select>' +
       '<select id="' + id + '-team" ' + h('team') + (v.dept ? '' : ' disabled') + '>' + o('', '팀', !v.team) + teams.map(t => o(t, t, t === v.team)).join('') + '</select>' +
       '<select id="' + id + '-person" ' + h('person') + (v.team ? '' : ' disabled') + '>' + o('', '직원 선택', !v.email) + people.map(e => o(e.email, e.name, e.email === v.email)).join('') + '</select>' +
-    '</div>' +
+    '</div>';
+}
+function _sapPicker(p, key, en, ko, req, note) {
+  const v = _sapSlot(sapAcct[p], key), id = p + '-sap-' + key;
+  return '<div class="sa-row" data-k="' + key + '">' + _sapLbl(en, ko, req) + (note ? '<div class="sa-note">' + escHtml(note) + '</div>' : '') + _sapSelects(p, key, v) +
     '<div class="appr-info"><input type="text" id="' + id + '-name" value="' + escHtml(v.name) + '" readonly placeholder="이름"><input type="email" id="' + id + '-email" value="' + escHtml(v.email) + '" readonly placeholder="이메일"></div></div>';
 }
 function sapPick(p, key, lvl, val) {
-  const a = sapAcct[p]; if (!a) return; const v = a[key];
+  const a = sapAcct[p]; if (!a) return; const v = _sapSlot(a, key); if (!v) return;
   if (lvl === 'dept') { v.dept = val; v.team = ''; v.name = ''; v.email = ''; }
   else if (lvl === 'team') { v.team = val; v.name = ''; v.email = ''; }
   else { const e = employeeData.find(r => r.email === val && r.dept === v.dept && r.team === v.team); v.email = e ? e.email : ''; v.name = e ? e.name : ''; }
   sapAcctRender(p);
 }
-function _sapCctr(p, req, note) {
+function _sapCctr(p, req, note, en, ko) {
   const a = sapAcct[p];
-  let h = '<div class="sa-row" data-k="cctr">' + _sapLbl('CCTR for PO creation &amp; GR processing', 'PO 생성 및 GR 처리에 필요한 CCTR', req) + (note ? '<div class="sa-note">' + escHtml(note) + '</div>' : '');
+  let h = '<div class="sa-row" data-k="cctr">' + _sapLbl(en || 'CCTR for PO creation &amp; GR processing', ko || 'PO 생성 및 GR 처리에 필요한 CCTR', req) + (note ? '<div class="sa-note">' + escHtml(note) + '</div>' : '');
   if (_cctrState === 'fail') {
     h += '<div class="sa-warn">⚠ CCTR 목록을 불러오지 못했습니다 — 코드와 이름을 직접 입력해 주세요(여러 개는 ; 로 구분).</div>' +
       '<input type="text" class="sa-input" id="' + p + '-sap-cctrfree" value="' + escHtml(a.cctrFree) + '" placeholder="e.g. 12345678 Sales Team; 87654321 Finance" oninput="sapAcct.' + p + '.cctrFree=this.value">';
@@ -1758,7 +1781,17 @@ function sapCctrAdd(p, code) {
   const q = document.getElementById(p + '-sap-cctrq'); if (q) q.focus();
 }
 function sapCctrDel(p, i) { const a = sapAcct[p]; if (!a) return; a.cctr.splice(i, 1); sapAcctRender(p); }
-function sapChgItem(p, it, on) { const a = sapAcct[p]; if (!a) return; a.items = SAP_CHG_ITEMS.filter(x => x === it ? on : a.items.includes(x)); sapAcctRender(p); }
+function sapHasActDe(a) { return !!a && a.opt === 'Account change' && (a.items.includes('Activation') || a.items.includes('Deactivation')); }
+function sapChgItem(p, it, on) {   // Activation · Deactivation 은 둘 중 하나만 — 바뀌면 사유 · 적용일 · 메모를 비운다. HR 자동 결재자도 다시 맞춘다
+  const a = sapAcct[p]; if (!a) return;
+  const was = a.items.join('|'), hadAct = a.items.includes('Activation'), hadDe = a.items.includes('Deactivation');
+  let items = a.items.filter(x => x !== it);
+  if (on) { items.push(it); if (it === 'Activation') items = items.filter(x => x !== 'Deactivation'); if (it === 'Deactivation') items = items.filter(x => x !== 'Activation'); }
+  a.items = SAP_CHG_ITEMS.filter(x => items.includes(x));
+  if (hadAct !== a.items.includes('Activation') || hadDe !== a.items.includes('Deactivation')) { a.reason = ''; a.date = ''; a.note = ''; }
+  sapAcctRender(p);
+  if (was !== a.items.join('|')) itRenderApprLine(p);
+}
 function sapSame(p, on) { const a = sapAcct[p]; if (!a) return; a.same = !!on; if (!on) a.ref = _sapEmp(); sapAcctRender(p); }
 function _sapSame(p) {
   const a = sapAcct[p];
@@ -1767,29 +1800,60 @@ function _sapSame(p) {
     '<div class="sa-same-text">' + escHtml(SAP_SAME_TEXT) + '</div>' +
     (a.same ? _sapPicker(p, 'ref', 'Reference user', '기준 직원', true) : '') + '</div>';
 }
+// CCTR approval line — 현재 · 변경 요청 결재 라인(최대 3단계)
+function sapLvlAdd(p, list) { const a = sapAcct[p]; if (!a || a[list].length >= SAP_MAX_LVL) return; a[list].push(_sapEmp()); sapAcctRender(p); }
+function sapLvlDel(p, list, i) { const a = sapAcct[p]; if (!a || a[list].length <= 1) return; a[list].splice(i, 1); sapAcctRender(p); }
+function sapCurNone(p, on) { const a = sapAcct[p]; if (!a) return; a.curNone = !!on; if (on) a.cur = [_sapEmp()]; sapAcctRender(p); }
+function _sapLine(arr) { return arr.filter(v => v.email).map(v => v.name).join(' → '); }
+function _sapLevels(p, list, en, ko) {
+  const a = sapAcct[p], arr = a[list], none = list === 'cur' && a.curNone;
+  let h = '<div class="sa-row" data-k="' + list + '">' + _sapLbl(en, ko, !none) +
+    (list === 'cur' ? '<label class="sa-inline-check"><input type="checkbox" id="' + p + '-sap-curnone"' + (none ? ' checked' : '') + ' onchange="sapCurNone(\'' + p + '\',this.checked)"> Not set yet <span class="ko">현재 설정 없음</span></label>' : '');
+  if (!none) {
+    h += arr.map((v, i) => '<div class="sa-lvl"><span class="sa-lvl-no">' + (i + 1) + '차</span><div class="sa-lvl-body">' + _sapSelects(p, list + i, v) +
+        '<div class="sa-picked" id="' + p + '-sap-' + list + i + '-picked">' + (v.email ? escHtml(v.name) + ' · ' + escHtml(v.email) : '<span class="sa-dim">—</span>') + '</div></div>' +
+        (arr.length > 1 ? '<button type="button" class="sa-lvl-del" aria-label="' + (i + 1) + '차 삭제" onclick="sapLvlDel(\'' + p + '\',\'' + list + '\',' + i + ')">✕</button>' : '') + '</div>').join('') +
+      (arr.length < SAP_MAX_LVL ? '<button type="button" class="sa-lvl-add" id="' + p + '-sap-' + list + '-add" onclick="sapLvlAdd(\'' + p + '\',\'' + list + '\')">+ 단계 추가</button>' : '');
+  }
+  return h + '</div>';
+}
 function sapAcctRender(p) {
-  const box = document.getElementById(p + '-sap-acct'); if (!box) return;
+  const box = document.getElementById(p + '-sap-acct'), nt = document.getElementById(p + '-sap-notice'); if (!box) return;
   const a = sapAcct[p];
+  // 빨간 안내 — CCTR approval line 이거나 Account change 의 Activation · Deactivation 일 때만, 상세 칸 바로 아래
+  const notice = !a ? '' : a.opt === SAP_CCTR ? '<b>CCTR approval line</b> requests require additional approval from the Controlling team.'
+    : sapHasActDe(a) ? '<b>Account activation / deactivation</b> requests require additional approval from the HR team.' : '';
+  if (nt) { nt.innerHTML = notice ? SAP_WARN_SVG + '<span>' + notice + '</span>' : ''; nt.hidden = !notice; }
   if (!a) { box.hidden = true; box.innerHTML = ''; return; }
-  const M = SAP_ACCT[a.opt], sameNote = a.same ? '기준 직원과 동일하게 설정 — 선택 사항' : '';
-  let h = '<div class="sa-head">' + escHtml(a.opt) + ' <span class="ko">' + M.ko + '</span></div>' + _sapPicker(p, 'target', 'Target user', '대상 사용자', true);
+  const sameNote = a.same ? '기준 직원과 동일하게 설정 — 선택 사항' : '';
+  let h = '<div class="sa-head">' + escHtml(a.opt) + ' <span class="ko">' + SAP_ACCT[a.opt].ko + '</span></div>' + _sapPicker(p, 'target', 'Target user', '대상 사용자', true);
   if (a.opt === 'Account creation') {
     h += _sapCctr(p, !a.same, sameNote) + _sapPicker(p, 'appr', 'Higher-level approver', '상위 승인권자', !a.same, sameNote) + _sapSame(p);
   } else if (a.opt === 'Account change') {
+    const act = a.items.includes('Activation'), de = a.items.includes('Deactivation'), needD = a.items.some(x => SAP_CHG_DETAIL_ITEMS.includes(x)) || !a.items.length;
     h += '<div class="sa-row" data-k="items">' + _sapLbl('What to change', '변경 항목', true) + '<div class="sa-checks">' + SAP_CHG_ITEMS.map(it =>
         '<label class="sa-check' + (a.items.includes(it) ? ' checked' : '') + '"><input type="checkbox" value="' + escHtml(it) + '"' + (a.items.includes(it) ? ' checked' : '') +
         ' onchange="sapChgItem(\'' + p + '\',this.value,this.checked)"> ' + escHtml(it) + '</label>').join('') + '</div></div>';
     if (a.items.includes('CCTR')) h += _sapCctr(p, !a.same, sameNote);
     if (a.items.includes('Higher-level approver')) h += _sapPicker(p, 'appr', 'Higher-level approver', '상위 승인권자', !a.same, sameNote);
-    h += '<div class="sa-row" data-k="details">' + _sapLbl('Change details', '변경 내용', true) +
-      '<textarea class="sa-input" id="' + p + '-sap-details" rows="3" placeholder="Describe what should change 변경할 내용을 적어 주세요" oninput="sapAcct.' + p + '.details=this.value">' + escHtml(a.details) + '</textarea></div>' + _sapSame(p);
-  } else {
-    if (a.opt === 'Account deactivation') h += '<div class="sa-row" data-k="date">' + _sapLbl('Effective date', '적용일', true) +
+    if (de) h += '<div class="sa-row" data-k="date">' + _sapLbl('Deactivation effective date', '비활성화 적용일', true) +
       '<input type="date" class="sa-input sa-date" id="' + p + '-sap-date" value="' + escHtml(a.date) + '" onchange="sapAcct.' + p + '.date=this.value"></div>';
-    h += '<div class="sa-row sa-2col" data-k="reason"><div>' + _sapLbl('Reason', '사유', true) +
+    if (act || de) h += '<div class="sa-row sa-2col" data-k="reason"><div>' + (act ? _sapLbl('Activation reason', '활성화 사유', true) : _sapLbl('Deactivation reason', '비활성화 사유', true)) +
         '<select class="sa-input" id="' + p + '-sap-reason" onchange="sapAcct.' + p + '.reason=this.value"><option value="">-- Select 선택 --</option>' +
-        M.reasons.map(r => '<option value="' + escHtml(r) + '"' + (r === a.reason ? ' selected' : '') + '>' + escHtml(r) + '</option>').join('') + '</select></div>' +
+        (act ? SAP_ACT_REASONS : SAP_DEACT_REASONS).map(r => '<option value="' + escHtml(r) + '"' + (r === a.reason ? ' selected' : '') + '>' + escHtml(r) + '</option>').join('') + '</select></div>' +
       '<div>' + _sapLbl('Note', '메모', false) + '<input type="text" class="sa-input" id="' + p + '-sap-note" value="' + escHtml(a.note) + '" placeholder="Optional 선택 입력" oninput="sapAcct.' + p + '.note=this.value"></div></div>';
+    h += '<div class="sa-row" data-k="details">' + _sapLbl('Change details', '변경 내용', needD) +
+      '<textarea class="sa-input" id="' + p + '-sap-details" rows="3" placeholder="Describe what should change 변경할 내용을 적어 주세요" oninput="sapAcct.' + p + '.details=this.value">' + escHtml(a.details) + '</textarea></div>' + _sapSame(p);
+  } else if (a.opt === SAP_CCTR) {
+    h += _sapCctr(p, false, '', 'Applicable CCTR', '적용 CCTR') +
+      _sapLevels(p, 'cur', 'Current approval line', '현재 결재 라인') +
+      _sapLevels(p, 'req', 'Requested approval line', '변경 요청 결재 라인') +
+      '<div class="sa-summary" id="' + p + '-sap-summary"><span class="k">Current</span> ' + escHtml(a.curNone ? 'Not set' : (_sapLine(a.cur) || '—')) +
+        ' <span class="arr">⟶</span> <span class="k">Requested</span> ' + escHtml(_sapLine(a.req) || '—') + '</div>' +
+      '<div class="sa-row" data-k="date">' + _sapLbl('Effective date', '적용 희망일', false) +
+        '<input type="date" class="sa-input sa-date" id="' + p + '-sap-date" value="' + escHtml(a.date) + '" onchange="sapAcct.' + p + '.date=this.value"></div>' +
+      '<div class="sa-row" data-k="why">' + _sapLbl('Reason for change', '변경 사유', true) +
+        '<textarea class="sa-input" id="' + p + '-sap-why" rows="3" placeholder="Why should the approval line change? 결재 라인을 바꾸려는 이유" oninput="sapAcct.' + p + '.why=this.value">' + escHtml(a.why) + '</textarea></div>';
   }
   box.innerHTML = h; box.hidden = false;
 }
@@ -1798,17 +1862,24 @@ function sapAcctCheck(p) {   // 상신 전 검사 — 빠진 칸 하나를 알�
   const P = 'STK SAP-Be1 · ';
   const hasCctr = a.cctr.length || (_cctrState === 'fail' && a.cctrFree.trim());
   if (!a.target.email) return P + 'Target user(대상 사용자)를 선택해주세요.';
-  if (a.opt === 'Account creation' || a.opt === 'Account change') {
-    if (a.opt === 'Account change' && !a.items.length) return P + 'What to change(변경 항목)를 선택해주세요.';
-    const needC = a.opt === 'Account creation' || a.items.includes('CCTR'), needA = a.opt === 'Account creation' || a.items.includes('Higher-level approver');
-    if (needC && !a.same && !hasCctr) return P + 'CCTR(PO 생성 및 GR 처리에 필요한 CCTR)을 ' + (_cctrState === 'fail' ? '입력' : '선택') + '해주세요.';
-    if (needA && !a.same && !a.appr.email) return P + 'Higher-level approver(상위 승인권자)를 선택해주세요.';
-    if (a.opt === 'Account change' && !a.details.trim()) return P + 'Change details(변경 내용)를 입력해주세요.';
-    if (a.same && !a.ref.email) return P + 'Reference user(기준 직원)를 선택해주세요.';
-  } else {
-    if (a.opt === 'Account deactivation' && !a.date) return P + 'Effective date(적용일)를 입력해주세요.';
-    if (!a.reason) return P + 'Reason(사유)을 선택해주세요.';
+  if (a.opt === SAP_CCTR) {
+    const lv = (arr, en, ko) => { for (let i = 0; i < arr.length; i++) if (!arr[i].email) return P + en + '(' + ko + ') ' + (i + 1) + '차 결재자를 선택' + (i ? '하거나 ✕로 지워 주세요.' : '해주세요.'); return ''; };
+    if (!a.curNone) { const e = lv(a.cur, 'Current approval line', '현재 결재 라인'); if (e) return e; }
+    const e2 = lv(a.req, 'Requested approval line', '변경 요청 결재 라인'); if (e2) return e2;
+    if (!a.why.trim()) return P + 'Reason for change(변경 사유)를 입력해주세요.';
+    return '';
   }
+  if (a.opt === 'Account change' && !a.items.length) return P + 'What to change(변경 항목)를 선택해주세요.';
+  const needC = a.opt === 'Account creation' || a.items.includes('CCTR'), needA = a.opt === 'Account creation' || a.items.includes('Higher-level approver');
+  if (needC && !a.same && !hasCctr) return P + 'CCTR(PO 생성 및 GR 처리에 필요한 CCTR)을 ' + (_cctrState === 'fail' ? '입력' : '선택') + '해주세요.';
+  if (needA && !a.same && !a.appr.email) return P + 'Higher-level approver(상위 승인권자)를 선택해주세요.';
+  if (a.opt === 'Account change') {
+    if (a.items.includes('Deactivation') && !a.date) return P + 'Deactivation effective date(비활성화 적용일)를 입력해주세요.';
+    if (a.items.includes('Activation') && !a.reason) return P + 'Activation reason(활성화 사유)을 선택해주세요.';
+    if (a.items.includes('Deactivation') && !a.reason) return P + 'Deactivation reason(비활성화 사유)을 선택해주세요.';
+    if (a.items.some(x => SAP_CHG_DETAIL_ITEMS.includes(x)) && !a.details.trim()) return P + 'Change details(변경 내용)를 입력해주세요.';
+  }
+  if (a.same && !a.ref.email) return P + 'Reference user(기준 직원)를 선택해주세요.';
   return '';
 }
 function sapAcctBlock(p) {   // 저장 블록 — 「[SAP-Be1 · Account creation]」 + 「키: 값」 줄
@@ -1819,20 +1890,26 @@ function sapAcctBlock(p) {   // 저장 블록 — 「[SAP-Be1 · Account creatio
   const L = [['Target user', who(a.target)]];
   if (a.opt === 'Account creation') L.push(['CCTR', cctr], ['Higher-level approver', who(a.appr)]);
   if (a.opt === 'Account change') {
+    const act = a.items.includes('Activation'), de = a.items.includes('Deactivation');
     L.push(['What to change', a.items.join(', ')]);
     if (a.items.includes('CCTR')) L.push(['CCTR', cctr]);
     if (a.items.includes('Higher-level approver')) L.push(['Higher-level approver', who(a.appr)]);
     L.push(['Change details', one(a.details)]);
+    if (act) L.push(['Activation reason', a.reason]);
+    if (de) L.push(['Deactivation effective date', a.date], ['Deactivation reason', a.reason]);
+    if (act || de) L.push(['Note', one(a.note)]);
   }
   if ((a.opt === 'Account creation' || a.opt === 'Account change') && a.same) L.push(['Same access as', who(a.ref)]);
-  if (a.opt === 'Account deactivation') L.push(['Effective date', a.date]);
-  if (a.opt === 'Account activation' || a.opt === 'Account deactivation') L.push(['Reason', a.reason], ['Note', one(a.note)]);
+  if (a.opt === SAP_CCTR) {
+    L.push(['CCTR', cctr], ['Current approval line', a.curNone ? 'Not set' : a.cur.filter(v => v.email).map(who).join(' → ')],
+      ['Requested approval line', a.req.filter(v => v.email).map(who).join(' → ')], ['Effective date', a.date], ['Reason', one(a.why)]);
+  }
   return '[SAP-Be1 · ' + a.opt + ']\n' + L.filter(x => x[1]).map(x => x[0] + ': ' + x[1]).join('\n');
 }
 function sapBlockParse(text) {   // 저장된 상세 내용 → { opt, rows:[[키, 값]], start, end } · 없으면 null
   const s = String(text || '');
   const keys = Object.keys(SAP_BLOCK_KEYS).map(k => k.replace(/[-/]/g, '\\$&')).join('|');
-  const m = s.match(new RegExp('(^|\\n)\\[SAP-Be1 · (' + Object.keys(SAP_ACCT).join('|') + ')\\]\\n((?:(?:' + keys + '): [^\\n]*(?:\\n|$))+)'));
+  const m = s.match(new RegExp('(^|\\n)\\[SAP-Be1 · (' + Object.keys(SAP_OPT_KO).join('|') + ')\\]\\n((?:(?:' + keys + '): [^\\n]*(?:\\n|$))+)'));
   if (!m) return null;
   const rows = m[3].split('\n').filter(Boolean).map(l => { const i = l.indexOf(': '); return [l.slice(0, i), l.slice(i + 2)]; });
   return { opt: m[2], rows, start: m.index, end: m.index + m[0].length };
@@ -1982,7 +2059,7 @@ function onPersonChange(idx, prefix) {
   const person = employeeData.find(e => e.email === email);
   document.getElementById(prefix + '-a' + idx + '-name').value = person ? person.name : '';
   document.getElementById(prefix + '-a' + idx + '-email').value = person ? person.email : '';
-  if (itSapSub(prefix) === SAP_CCTR) itRenderApprLine(prefix);   // 1차가 바뀌면 CCTR 자동 결재자 중복 제외를 다시 본다(10-16)
+  if (IT_AUTO_GROUPS.some(g => g.on(prefix))) itRenderApprLine(prefix);   // 1차가 바뀌면 자동 결재자(CCTR · HR) 중복 제외를 다시 본다(10-16)
 }
 
 // ── Check approver & admin tab ──
@@ -2056,16 +2133,21 @@ let _itExSeq = 0;
    · 신청자 본인 · 1차 결재자와 같은 사람, 두 키가 같은 사람이면 한 번만(또는 빼고) 넣고 안내한다.
    · 설정 값이 비어 있으면 넣지 않고 경고 — 상신을 막는다(필수 결재자 누락 방지). */
 const itAutoInfo = { inc: { notes: [], err: '' }, chg: { notes: [], err: '' } };
+// 자동 결재자 묶음 — CCTR approval line → Controlling, Account change 의 Activation · Deactivation → HR. 사람은 설정 파일에서만 정한다.
+const IT_AUTO_GROUPS = [
+  { id: 'cctr', tag: 'CCTR', what: 'CCTR approval line', keys: SAP_CCTR_KEYS, on: p => itSapSub(p) === SAP_CCTR },
+  { id: 'hr',   tag: 'HR',   what: 'Account activation / deactivation', keys: SAP_HR_KEYS, on: p => itSapSub(p) === 'Account change' && sapHasActDe(sapAcct[p]) },
+];
 function itSyncAuto(p) {
   const manual = (itExtra[p] || []).filter(x => !x.auto);
-  const info = { notes: [], err: '' }, auto = [];
-  if (itSapSub(p) === SAP_CCTR) {
-    const cfg = _sysConfig;
-    const low = s => String(s || '').trim().toLowerCase();
-    const me = [user && user.email, user && user.username].map(low).filter(Boolean);
-    const a1El = document.getElementById(p + '-a1-email'), a1 = low(a1El && a1El.value);
-    const miss = [], seen = new Set();
-    SAP_CCTR_KEYS.forEach((k, i) => {
+  const info = { notes: [], err: '' }, auto = [], errs = [];
+  const low = s => String(s || '').trim().toLowerCase();
+  const me = [user && user.email, user && user.username].map(low).filter(Boolean);
+  const a1El = document.getElementById(p + '-a1-email'), a1 = low(a1El && a1El.value);
+  const seen = new Set();
+  IT_AUTO_GROUPS.filter(g => g.on(p)).forEach(g => {
+    const cfg = _sysConfig, miss = [];
+    g.keys.forEach((k, i) => {
       const v = cfg && cfg[k], email = v ? String(v.email || '').trim() : '', name = v ? String(v.name || '').trim() : '';
       const role = k.replace(/^IT_/, '').replace(/_/g, ' ');
       if (!email) { miss.push(role + ' (' + k + ')'); return; }
@@ -2074,11 +2156,12 @@ function itSyncAuto(p) {
       if (a1 && low(email) === a1) { info.notes.push(role + ' ' + who + ' 님은 이미 1차 결재자라 한 번만 결재합니다.'); return; }
       if (seen.has(low(email))) { info.notes.push(role + ' ' + who + ' 님은 앞 단계와 같은 사람이라 한 번만 결재합니다.'); return; }
       seen.add(low(email));
-      auto.push({ uid: 'itauto-' + p + '-' + i, auto: 'cctr', key: k, role, dept: '', team: '', name: name || email, email });
+      auto.push({ uid: 'itauto-' + p + '-' + g.id + '-' + i, auto: g.id, tag: g.tag, key: k, role, dept: '', team: '', name: name || email, email });
     });
-    if (miss.length) info.err = 'CCTR approval line 결재자 설정이 비어 있어 상신할 수 없습니다 — ' + miss.join(', ') + '. IT팀(stk_it@hyosung.com)에 알려주세요.';
-    else if (_sysConfig == null) info.err = '설정 파일을 읽지 못해 CCTR approval line 결재자를 정할 수 없습니다 — 새로고침 후 다시 시도해 주세요.';
-  }
+    if (miss.length) errs.push(g.what + ' 결재자 설정이 비어 있어 상신할 수 없습니다 — ' + miss.join(', ') + '. IT팀(stk_it@hyosung.com)에 알려주세요.');
+    else if (_sysConfig == null) errs.push('설정 파일을 읽지 못해 ' + g.what + ' 결재자를 정할 수 없습니다 — 새로고침 후 다시 시도해 주세요.');
+  });
+  info.err = errs.join(' ');
   itExtra[p] = auto.concat(manual);
   if (itExtra[p].length > IT_MAX_EXTRA)
     info.err = (info.err ? info.err + ' ' : '') + '추가 결재자는 자동 지정 포함 최대 ' + IT_MAX_EXTRA + '명입니다 — 직접 추가한 결재자를 ' + (itExtra[p].length - IT_MAX_EXTRA) + '명 「✕ 삭제」로 지워 주세요.';
@@ -2092,7 +2175,7 @@ function itRenderApprLine(p) {
   if (prev) {
     const steps = [{ label: 'Line Manager (팀장)', cls: '' }]
       .concat(list.map(x => x.auto
-        ? { label: escHtml(x.name) + ' (CCTR)', cls: 'cctr' }
+        ? { label: escHtml(x.name) + ' (' + escHtml(x.tag) + ')', cls: x.auto }
         : { label: x.name ? escHtml(x.name) + ' (추가)' : '추가 결재자 (미지정)', cls: 'extra' }))
       .concat([{ label: 'IT 담당자', cls: 'fixed' }]);
     prev.innerHTML =
@@ -2124,8 +2207,8 @@ function itRenderApprLine(p) {
       (_ai.err ? '<div class="it-auto-note err" role="alert">⚠ ' + escHtml(_ai.err) + '</div>' : '') +
       (_ai.notes.length ? '<div class="it-auto-note">ℹ ' + _ai.notes.map(escHtml).join('<br>') + '</div>' : '') +
       list.map((x, i) => x.auto
-      ? '<div class="appr-block appr-extra appr-auto" data-auto="' + escHtml(x.key) + '">' +
-          '<div class="appr-block-title">' + (i + 2) + '차 결재자<span class="appr-tag cctr">자동 지정 · CCTR</span> <span class="hint">— ' + escHtml(x.role) + '</span></div>' +
+      ? '<div class="appr-block appr-extra appr-auto appr-auto-' + x.auto + '" data-auto="' + escHtml(x.key) + '">' +
+          '<div class="appr-block-title">' + (i + 2) + '차 결재자<span class="appr-tag ' + x.auto + '">자동 지정 · ' + escHtml(x.tag) + '</span> <span class="hint">— ' + escHtml(x.role) + '</span></div>' +
           '<div class="appr-info">' +
             '<input type="text" id="' + x.uid + '-name" value="' + escHtml(x.name) + '" readonly placeholder="이름">' +
             '<input type="email" id="' + x.uid + '-email" value="' + escHtml(x.email) + '" readonly placeholder="이메일">' +
@@ -2292,9 +2375,6 @@ async function submitTicket(prefix) {
   const _subs = itSubsState(prefix);
   const _subMiss = _subs.find(x => !x.opt);
   if (_subMiss) return alert(_subMiss.sys + ' 요청 구분을 선택해주세요.');
-  const _sapErr = sapAcctCheck(prefix);   // SAP-Be1 계정 요청 상세(10-16)
-  if (_sapErr) return alert(_sapErr);
-  const _sapBlock = sapAcctBlock(prefix);
   itRenderApprLine(prefix);   // CCTR 자동 결재자를 지금 값(설정 · 1차)으로 다시 맞춘다(10-16)
   if (itAutoInfo[prefix] && itAutoInfo[prefix].err) return alert(itAutoInfo[prefix].err);
   const _exList = (itExtra[prefix] || []).slice();
@@ -2302,7 +2382,10 @@ async function submitTicket(prefix) {
   if (_exMiss >= 0) return alert((_exMiss + 2) + '차 추가 결재자를 지정하거나 「✕ 삭제」로 지워 주세요.');
   const _autoMails = _exList.filter(x => x.auto).map(x => x.email.toLowerCase());
   const _exDup = _exList.findIndex(x => !x.auto && _autoMails.includes(String(x.email).toLowerCase()));
-  if (_exDup >= 0) return alert((_exDup + 2) + '차 추가 결재자(' + _exList[_exDup].name + ')는 CCTR 자동 결재자로 이미 들어 있습니다 — 「✕ 삭제」로 지워 주세요.');
+  if (_exDup >= 0) return alert((_exDup + 2) + '차 추가 결재자(' + _exList[_exDup].name + ')는 ' + _exList.find(x => x.auto && x.email.toLowerCase() === String(_exList[_exDup].email).toLowerCase()).tag + ' 자동 결재자로 이미 들어 있습니다 — 「✕ 삭제」로 지워 주세요.');
+  const _sapErr = sapAcctCheck(prefix);   // SAP-Be1 요청 상세(10-16)
+  if (_sapErr) return alert(_sapErr);
+  const _sapBlock = sapAcctBlock(prefix);
 
   let detail = '';
   if (isInc) {
@@ -2459,7 +2542,7 @@ async function submitTicket(prefix) {
       }});
     }
 
-    logChange('IT Ticket', '상신', () => (Object.assign({ 신청번호: Number(reqId), 제목: 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId, 유형: type, 우선순위: priority, 결재단계: approvers.length, 첨부: files.length }, _subs.length ? { 요청구분: _subs.map(x => x.sys + ': ' + x.opt).join('; ') } : {}, _sapBlock ? { SAP계정: _sapBlock.replace(/\n/g, ' | ') } : {}, _exList.some(x => x.auto) ? { 자동결재자: _exList.filter(x => x.auto).map(x => x.role + ' ' + x.name + ' <' + x.email + '>').join(', ') } : {})));   // 10-15 · 요청 구분 · CCTR 자동 결재자(10-16)
+    logChange('IT Ticket', '상신', () => (Object.assign({ 신청번호: Number(reqId), 제목: 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId, 유형: type, 우선순위: priority, 결재단계: approvers.length, 첨부: files.length }, _subs.length ? { 요청구분: _subs.map(x => x.sys + ': ' + x.opt).join('; ') } : {}, _sapBlock ? { SAP요청: _sapBlock.replace(/\n/g, ' | ') } : {}, _exList.some(x => x.auto) ? { 자동결재자: _exList.filter(x => x.auto).map(x => x.role + ' ' + x.name + ' <' + x.email + '>').join(', ') } : {})));   // 10-15 · 요청 구분 · CCTR 자동 결재자(10-16)
     showAlert('티켓이 등록되었습니다.', 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId);
     resetForm(prefix);
     switchTab('list');
@@ -3164,8 +3247,8 @@ async function showDetail(requestId) {
         : '<span class="badge-' + (function(s){var v=(s||'대기').trim();return v.indexOf('철회')===0?'철회':(v==='승인'?'승인완료':v);})(f.Status) + '">' + (f.Status||'대기') + '</span>') +
       rowT('대상 시스템', f.Systems) +
       (sysSubsOf(f.Systems).length ? row('요청 구분', sysSubsOf(f.Systems).map(x => escHtml(x.sys + ': ' + x.opt)).join('<br>')) : '') +   // 시스템별 요청 구분(10-16) — 구분 없는 예전 티켓은 줄 없음
-      (_sapBlk ? row('SAP-Be1 계정', '<table class="sa-dl"><tr><th>Request<span>요청</span></th><td>' + escHtml(_sapBlk.opt) + ' · ' + escHtml((SAP_ACCT[_sapBlk.opt] || {}).ko || '') + '</td></tr>' +
-        _sapBlk.rows.map(r => '<tr><th>' + escHtml(r[0]) + '<span>' + escHtml(SAP_BLOCK_KEYS[r[0]] || '') + '</span></th><td>' + (r[0] === 'CCTR' ? r[1].split(/\s*;\s*/).map(escHtml).join('<br>') : escHtml(r[1])) + '</td></tr>').join('') + '</table>') : '') +   // CCTR 은 한 줄에 하나
+      (_sapBlk ? row('SAP-Be1 요청 상세', '<table class="sa-dl"><tr><th>Request<span>요청</span></th><td>' + escHtml(_sapBlk.opt) + ' · ' + escHtml(SAP_OPT_KO[_sapBlk.opt] || '') + '</td></tr>' +
+        _sapBlk.rows.map(r => '<tr><th>' + escHtml(r[0]) + '<span>' + escHtml(sapKeyKo(_sapBlk.opt, r[0])) + '</span></th><td>' + (r[0] === 'CCTR' ? r[1].split(/\s*;\s*/).map(escHtml).join('<br>') : / → /.test(r[1]) ? r[1].split(' → ').map((x, i) => (i + 1) + '. ' + escHtml(x)).join('<br>') : escHtml(r[1])) + '</td></tr>').join('') + '</table>') : '') +   // CCTR 은 한 줄에 하나
       row('등록일', f.RequestDate ? fmtDate(f.RequestDate) : '');
 
     const t = f.TicketType;
@@ -4194,6 +4277,7 @@ function linkifyTicketRefs(text) {
 .sys-sub-hint{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500;color:#9F1D1D;margin-top:8px;line-height:1.5}   /* CCTR 안내 — ACC Others 첨부 안내처럼 짙은 빨강 한 줄(10-16) */
 .sys-sub-hint svg{flex:none}
 .sys-sub-hint b{font-weight:700}
+.sys-sub-hint[hidden]{display:none}
 /* SAP-Be1 계정 요청 상세(10-16) — SAP-Be1 구분 칸 안, 구분 버튼 아래. 결재자 블록과 같은 선택 칸(appr-select-row · appr-info)을 쓴다 */
 .sap-acct{margin-top:10px;padding:10px 12px 4px;background:#fff;border:1px solid #d6e4f2;border-radius:6px;min-width:0}
 .sap-acct[hidden]{display:none}
@@ -4237,10 +4321,28 @@ textarea.sa-input{resize:vertical;min-height:64px;line-height:1.5}
 .sa-dl th{width:36%;text-align:left;font-weight:600;color:#323130;padding:4px 8px 4px 0;vertical-align:top;border-bottom:1px solid #f3f2f1}
 .sa-dl th span{display:block;font-weight:400;font-size:10.5px;color:#8a8886}
 .sa-dl td{padding:4px 0;vertical-align:top;border-bottom:1px solid #f3f2f1;overflow-wrap:break-word;word-break:break-word}
-@media (max-width:640px){.sa-2col{grid-template-columns:1fr}.sap-acct{padding:10px 10px 4px}.sa-same-text{margin-left:0}.sa-date{max-width:none}#app .sa-row select,#app .sa-row .appr-info input{height:36px}}
+.sa-inline-check{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#323130;margin:0 0 6px;cursor:pointer}
+.sa-inline-check input{margin:0;accent-color:#0078d4}
+.sa-inline-check .ko{color:#605e5c}
+.sa-lvl{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;min-width:0}
+.sa-lvl-no{flex:none;min-width:30px;text-align:center;background:#0078d4;color:#fff;border-radius:10px;padding:2px 0;font-size:11px;font-weight:700;margin-top:7px}
+.sa-lvl-body{flex:1;min-width:0}
+.sa-picked{font-size:11.5px;color:#605e5c;margin-top:4px;overflow-wrap:anywhere}
+.sa-dim{color:#c8c6c4}
+.sa-lvl-del{flex:none;margin-top:5px;background:#fff;color:#a4262c;border:1px solid #e6b3b3;border-radius:5px;padding:4px 9px;font-size:11px;cursor:pointer;line-height:1.2}
+.sa-lvl-del:hover{background:#a4262c;color:#fff}
+.sa-lvl-add{background:#fff;color:#0078d4;border:1.5px dashed #7fb4e0;border-radius:14px;padding:3px 12px;font-size:11px;font-weight:700;cursor:pointer;margin-left:38px}
+.sa-lvl-add:hover{background:#0078d4;color:#fff;border-style:solid}
+.sa-summary{font-size:12px;color:#323130;background:#f7fbff;border:1px solid #d6e4f2;border-radius:6px;padding:6px 10px;margin:-2px 0 10px;line-height:1.6;overflow-wrap:anywhere}
+.sa-summary .k{font-size:10.5px;font-weight:700;color:#0b5fa5;text-transform:uppercase;letter-spacing:.3px;margin-right:2px}
+.sa-summary .arr{color:#8a8886;margin:0 6px}
+@media (max-width:640px){.sa-lvl-add{margin-left:0}.sa-2col{grid-template-columns:1fr}.sap-acct{padding:10px 10px 4px}.sa-same-text{margin-left:0}.sa-date{max-width:none}#app .sa-row select,#app .sa-row .appr-info input{height:36px}}
 @media (max-width:640px){.sys-sub-opts{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.sys-sub-opt{min-height:40px;padding:6px 8px}}
 /* CCTR 자동 결재자 블록(10-16) — 읽기 전용, 지울 수 없음 */
 .appr-tag.cctr{color:#5c2e91;background:#efe6fa}
+.appr-tag.hr{color:#0d6a62;background:#dcf2ee}
+.line-step-badge.hr{background:#15877b}
+.appr-block.appr-extra.appr-auto.appr-auto-hr{background:#f4fbf9;border-color:#bde3dc;border-left:3px solid #15877b}
 .line-step-badge.cctr{background:#8a5cc7}
 .appr-block.appr-extra.appr-auto{background:#faf7ff;border-color:#d9c7f0;border-left:3px solid #8a5cc7}
 .it-auto-note{font-size:11px;color:#605e5c;background:#f7f5fb;border:1px solid #e1d7ef;border-radius:6px;padding:6px 10px;margin:0 0 8px;line-height:1.5;overflow-wrap:anywhere}
