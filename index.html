@@ -1090,7 +1090,7 @@ const SYSTEMS = [
    구분 값에 「;」 를 쓰지 않는다(Excel 이 ; 로 나눈다).
    STK SAP-Be1 「CCTR approval line」 이면 설정 파일(system_config)의 IT_Controlling_Admin → IT_Controlling_Manager 를 추가 결재자로 자동으로 넣는다(사람은 설정 파일에서만 정한다). */
 const SAP_SYS = 'STK SAP-Be1';
-const SAP_SUBS = ['GR cancellation', 'Password issue(change, login)', 'CCTR approval line', 'Approval delegation'];
+const SAP_SUBS = ['GR cancellation', 'Password issue(change, login)', 'CCTR approval line', 'Approval delegation', 'Other'];
 const SAP_CCTR = 'CCTR approval line';
 const SAP_CCTR_KEYS = ['IT_Controlling_Admin', 'IT_Controlling_Manager'];   // 순서 = 결재 순서
 const SYSTEM_SUBS = {
@@ -1111,15 +1111,21 @@ const SYSTEM_SUBS = {
   'Hyosung M365':        ['Account / License', 'Outlook / Mail', 'Teams', 'OneDrive / SharePoint', 'MFA / Password', 'Other'],
   'Hyosung GUMS':        ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
   'Hyosung Viva Engage': ['Access / Community', 'Error / Bug', 'Other'],
-  'CoD':                 ['Access / Permission', 'Error / Bug', 'Other'],
+  'CoD':                 ['Replacement', 'Name change / Addition', 'Other'],   // 교체 · 명의 변경 or 추가 · Other
   'STK Watermark':       ['Installation', 'Exception request', 'Error / Bug', 'Other'],
 };
+// 탭별로 빼는 구분(10-16) — Change / Request 탭은 오류를 Incident / Problem 티켓으로 받으므로 「Error / Bug」 를 보이지 않는다.
+// 화면 선택지에서만 뺀다 — 저장값 해석(sysSubsOf)은 전체 목록을 써서 예전 Change 티켓의 「Error / Bug」 도 그대로 보인다.
+const SYSTEM_SUBS_EXCLUDE = { chg: ['Error / Bug'] };
+// 목록에서 빠졌지만 예전 티켓에 저장돼 있을 수 있는 구분 — 저장값 해석에만 쓴다(화면 선택지에는 없음)
+const SYSTEM_SUBS_LEGACY = { 'CoD': ['Access / Permission', 'Error / Bug'] };
+function sysSubsFor(p, sys) { const ex = SYSTEM_SUBS_EXCLUDE[p] || []; return (SYSTEM_SUBS[sys] || []).filter(o => !ex.includes(o)); }
 const sysSlug = s => String(s).replace(/[^a-zA-Z0-9]/g, '');
 // 저장된 Systems 값 → [{sys, opt}] (SYSTEMS 순서). 「시스템 (구분)」 이 값 맨 앞이거나 「, 」 · 「;」 바로 뒤에 있을 때만 — 다른 구분 글자 속 일부와 헷갈리지 않게.
 // 구분 없이 저장된 예전 티켓은 빈 배열.
 function sysSubsOf(systems) {
   const s = String(systems || ''), out = [];
-  SYSTEMS.forEach(sys => (SYSTEM_SUBS[sys] || []).some(o => {
+  SYSTEMS.forEach(sys => (SYSTEM_SUBS[sys] || []).concat(SYSTEM_SUBS_LEGACY[sys] || []).some(o => {
     const tok = sys + ' (' + o + ')';
     for (let i = s.indexOf(tok); i >= 0; i = s.indexOf(tok, i + 1)) {
       const pre = s.slice(0, i).replace(/\s+$/, ''), end = s.slice(i + tok.length).replace(/^\s+/, '');
@@ -1601,7 +1607,7 @@ function initSysGrid(gridId) {
     (SYSTEM_SUBS[s]
       ? '<div class="sys-sub" id="' + gridId + '-sub-' + sysSlug(s) + '" data-sys="' + escHtml(s) + '" role="radiogroup" aria-label="' + escHtml(s) + ' 요청 구분" hidden>' +
           '<div class="sys-sub-title">↳ ' + escHtml(s) + ' 요청 구분 <span class="req">*</span></div>' +
-          '<div class="sys-sub-opts">' + SYSTEM_SUBS[s].map(o =>
+          '<div class="sys-sub-opts">' + sysSubsFor(gridId.replace(/-sys-grid$/, ''), s).map(o =>
             '<label class="sys-sub-opt"><input type="radio" name="' + gridId + '-sub-' + sysSlug(s) + '" value="' + escHtml(o) + '" onchange="onSysSub(this)"> ' + escHtml(o) + '</label>').join('') +
           '</div>' +
           (s === SAP_SYS ? '<div class="sys-sub-hint">CCTR approval line 은 설정된 Controlling 담당자 2명이 결재 라인(추가 결재자)에 자동으로 들어갑니다.</div>' : '') +
