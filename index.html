@@ -1085,14 +1085,50 @@ const SYSTEMS = [
   'STK SAP-Be1', 'STK WINCMS', 'STK Autofocus DMS', 'STK Autofocus CRM', 'STK VPN', 'STK MKQR', 'STK ICS', 'Shared Service Center',
   'Hyosung M365', 'Hyosung GUMS', 'Hyosung Viva Engage', 'CoD', 'STK Watermark', '기타'
 ];
-/* STK SAP-Be1 요청 구분(10-16) — SAP-Be1 을 고르면 아래에 한 가지를 꼭 고른다.
-   새 열 없이 대상 시스템(Systems) 값 안에 「STK SAP-Be1 (CCTR approval line)」 처럼 함께 저장한다 — 목록 · 결재함 · Excel · APS 가 그대로 읽는다.
-   「CCTR approval line」 이면 설정 파일(system_config)의 IT_Controlling_Admin → IT_Controlling_Manager 를 추가 결재자로 자동으로 넣는다(사람은 설정 파일에서만 정한다). */
+/* 시스템별 요청 구분(10-16) — 체크한 시스템마다 바로 아래 줄에 구분 칸이 열리고 한 가지를 꼭 고른다(「기타」는 자유 입력이라 없음).
+   새 열 없이 대상 시스템(Systems) 값 안에 「STK APS (Error / Bug)」 처럼 함께 저장한다 — 목록 · 결재함 · Excel · APS 가 그대로 읽는다.
+   구분 값에 「;」 를 쓰지 않는다(Excel 이 ; 로 나눈다).
+   STK SAP-Be1 「CCTR approval line」 이면 설정 파일(system_config)의 IT_Controlling_Admin → IT_Controlling_Manager 를 추가 결재자로 자동으로 넣는다(사람은 설정 파일에서만 정한다). */
 const SAP_SYS = 'STK SAP-Be1';
 const SAP_SUBS = ['GR cancellation', 'Password issue(change, login)', 'CCTR approval line', 'Approval delegation'];
 const SAP_CCTR = 'CCTR approval line';
 const SAP_CCTR_KEYS = ['IT_Controlling_Admin', 'IT_Controlling_Manager'];   // 순서 = 결재 순서
-function sapSubOf(systems) { const s = String(systems || ''); return SAP_SUBS.find(o => s.indexOf(SAP_SYS + ' (' + o + ')') >= 0) || ''; }
+const SYSTEM_SUBS = {
+  'STK APS':             ['Approval line change', 'Access / Permission', 'Approval delegation', 'Error / Bug', 'Feature change request', 'Other'],
+  'STK WMC':             ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
+  'STK RAS':             ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
+  'STK KR-Intranet':     ['Account / Login', 'Access / Permission', 'Content / Board update', 'Error / Bug', 'Other'],
+  'SharePoint':          ['Site / Library access', 'Permission change', 'New site / List request', 'File recovery', 'OneDrive sync issue', 'Other'],
+  'STK Intra CV':        ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
+  'STK SAP-Be1':         SAP_SUBS,
+  'STK WINCMS':          ['Transfer / Payment error', 'Bank interface issue', 'Access / Permission', 'Other'],
+  'STK Autofocus DMS':   ['Account / Login', 'Access / Permission', 'Device registration', 'Error / Bug', 'Other'],
+  'STK Autofocus CRM':   ['Account / Login', 'Access / Permission', 'Device registration', 'Lead / Data correction', 'Error / Bug', 'Other'],
+  'STK VPN':             ['New account', 'Connection issue', 'Device registration', 'Password reset', 'Other'],
+  'STK MKQR':            ['Campaign / QR setup', 'Access / Permission', 'Error / Bug', 'Other'],
+  'STK ICS':             ['Access / Permission', 'Control / Evidence update', 'Error / Bug', 'Other'],
+  'Shared Service Center': ['Access / Permission', 'Ticket / Workflow issue', 'Error / Bug', 'Other'],
+  'Hyosung M365':        ['Account / License', 'Outlook / Mail', 'Teams', 'OneDrive / SharePoint', 'MFA / Password', 'Other'],
+  'Hyosung GUMS':        ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
+  'Hyosung Viva Engage': ['Access / Community', 'Error / Bug', 'Other'],
+  'CoD':                 ['Access / Permission', 'Error / Bug', 'Other'],
+  'STK Watermark':       ['Installation', 'Exception request', 'Error / Bug', 'Other'],
+};
+const sysSlug = s => String(s).replace(/[^a-zA-Z0-9]/g, '');
+// 저장된 Systems 값 → [{sys, opt}] (SYSTEMS 순서). 「시스템 (구분)」 이 값 맨 앞이거나 「, 」 · 「;」 바로 뒤에 있을 때만 — 다른 구분 글자 속 일부와 헷갈리지 않게.
+// 구분 없이 저장된 예전 티켓은 빈 배열.
+function sysSubsOf(systems) {
+  const s = String(systems || ''), out = [];
+  SYSTEMS.forEach(sys => (SYSTEM_SUBS[sys] || []).some(o => {
+    const tok = sys + ' (' + o + ')';
+    for (let i = s.indexOf(tok); i >= 0; i = s.indexOf(tok, i + 1)) {
+      const pre = s.slice(0, i).replace(/\s+$/, ''), end = s.slice(i + tok.length).replace(/^\s+/, '');
+      if ((pre === '' || /[,;]$/.test(pre)) && (end === '' || /^[,;]/.test(end))) { out.push({ sys, opt: o }); return true; }
+    }
+    return false;
+  }));
+  return out;
+}
 
 const PRIORITY_COLORS = { Low:'#107c10', Medium:'#7d5700', High:'#a4262c', Critical:'#fff' };
 const PRIORITY_BG = { Low:'#dff6dd', Medium:'#fff4ce', High:'#fde7e9', Critical:'#3b1219' };
@@ -1562,33 +1598,38 @@ function initSysGrid(gridId) {
   grid.innerHTML = SYSTEMS.map(s =>
     '<label class="sys-item" id="' + gridId + '-' + s.replace(/[^a-zA-Z0-9]/g,'') + '">' +
     '<input type="checkbox" value="' + s + '" onchange="onSysCheck(this)"> ' + s + '</label>' +
-    (s === SAP_SYS
-      ? '<div class="sys-sub" id="' + gridId + '-sapsub" role="radiogroup" aria-label="STK SAP-Be1 요청 구분" hidden>' +
-          '<div class="sys-sub-title">↳ STK SAP-Be1 요청 구분 <span class="req">*</span></div>' +
-          '<div class="sys-sub-opts">' + SAP_SUBS.map(o =>
-            '<label class="sys-sub-opt"><input type="radio" name="' + gridId + '-sapsub" value="' + escHtml(o) + '" onchange="onSapSub(this)"> ' + escHtml(o) + '</label>').join('') +
+    (SYSTEM_SUBS[s]
+      ? '<div class="sys-sub" id="' + gridId + '-sub-' + sysSlug(s) + '" data-sys="' + escHtml(s) + '" role="radiogroup" aria-label="' + escHtml(s) + ' 요청 구분" hidden>' +
+          '<div class="sys-sub-title">↳ ' + escHtml(s) + ' 요청 구분 <span class="req">*</span></div>' +
+          '<div class="sys-sub-opts">' + SYSTEM_SUBS[s].map(o =>
+            '<label class="sys-sub-opt"><input type="radio" name="' + gridId + '-sub-' + sysSlug(s) + '" value="' + escHtml(o) + '" onchange="onSysSub(this)"> ' + escHtml(o) + '</label>').join('') +
           '</div>' +
-          '<div class="sys-sub-hint">CCTR approval line 은 설정된 Controlling 담당자 2명이 결재 라인(추가 결재자)에 자동으로 들어갑니다.</div>' +
+          (s === SAP_SYS ? '<div class="sys-sub-hint">CCTR approval line 은 설정된 Controlling 담당자 2명이 결재 라인(추가 결재자)에 자동으로 들어갑니다.</div>' : '') +
         '</div>'
       : '')
   ).join('');
 }
-function itSapSub(p) {   // SAP-Be1 이 체크돼 있을 때 고른 요청 구분('' = 안 고름 · 체크 안 됨)
+function itSubOf(p, sys) {   // 체크된 시스템의 고른 요청 구분('' = 안 고름 · 체크 안 됨)
   const grid = document.getElementById(p + '-sys-grid'); if (!grid) return '';
-  const cb = grid.querySelector('input[type="checkbox"][value="' + SAP_SYS + '"]');
+  const cb = Array.from(grid.querySelectorAll('input[type="checkbox"]')).find(c => c.value === sys);
   if (!cb || !cb.checked) return '';
-  const r = grid.querySelector('input[name="' + p + '-sys-grid-sapsub"]:checked');
+  const r = grid.querySelector('input[name="' + p + '-sys-grid-sub-' + sysSlug(sys) + '"]:checked');
   return r ? r.value : '';
 }
-function itSapPanel(p, show) {
-  const box = document.getElementById(p + '-sys-grid-sapsub'); if (!box) return;
+function itSapSub(p) { return itSubOf(p, SAP_SYS); }
+function itSubsState(p) {   // 체크된 시스템 중 구분이 있는 것 → [{sys, opt}] (그리드 순서, opt '' = 안 고름)
+  const grid = document.getElementById(p + '-sys-grid'); if (!grid) return [];
+  return Array.from(grid.querySelectorAll('input[type="checkbox"]:checked')).filter(c => SYSTEM_SUBS[c.value]).map(c => ({ sys: c.value, opt: itSubOf(p, c.value) }));
+}
+function itSubPanel(p, sys, show) {
+  const box = document.getElementById(p + '-sys-grid-sub-' + sysSlug(sys)); if (!box) return;
   box.hidden = !show;
   if (!show) box.querySelectorAll('input[type="radio"]').forEach(r => { r.checked = false; r.parentElement.classList.remove('checked'); });
 }
-function onSapSub(r) {
+function onSysSub(r) {
   const box = r.closest('.sys-sub'); if (!box) return;
   box.querySelectorAll('input[type="radio"]').forEach(x => x.parentElement.classList.toggle('checked', x.checked));
-  itRenderApprLine(box.id.replace(/-sys-grid-sapsub$/, ''));
+  if (box.dataset.sys === SAP_SYS) itRenderApprLine(box.id.replace(/-sys-grid-sub-.*$/, ''));   // CCTR 자동 결재자는 SAP-Be1 만
 }
 function syncNoticeBoxes() {
   if (_activeTab !== 'change') {
@@ -1624,9 +1665,10 @@ function syncNoticeBoxes() {
 function onSysCheck(cb) {
   const label = cb.parentElement;
   label.classList.toggle('checked', cb.checked);
-  if (cb.value === SAP_SYS) {   // SAP-Be1 요청 구분 칸 — 두 탭 모두(10-16). 해제하면 고른 값 · CCTR 자동 결재자도 지운다
+  if (SYSTEM_SUBS[cb.value]) {   // 시스템별 요청 구분 칸 — 두 탭 모두(10-16). 해제하면 고른 값도 지운다(SAP-Be1 은 CCTR 자동 결재자도)
     const _p = (cb.closest('.sys-grid') || { id: '' }).id.replace(/-sys-grid$/, '');
-    itSapPanel(_p, cb.checked); itRenderApprLine(_p);
+    itSubPanel(_p, cb.value, cb.checked);
+    if (cb.value === SAP_SYS) itRenderApprLine(_p);
   }
   // Change탭일 때만 CoD/VPN 안내 박스 토글
   if (typeof _activeTab !== 'undefined' && _activeTab !== 'change') return;
@@ -1654,8 +1696,8 @@ function onSysCheck(cb) {
 }
 function getSelectedSystems(gridId, otherId) {
   const checks = document.querySelectorAll('#' + gridId + ' input[type="checkbox"]:checked');
-  const _sub = itSapSub(gridId.replace(/-sys-grid$/, ''));
-  const systems = Array.from(checks).map(c => (c.value === SAP_SYS && _sub) ? c.value + ' (' + _sub + ')' : c.value);   // 「STK SAP-Be1 (CCTR approval line)」(10-16)
+  const _p = gridId.replace(/-sys-grid$/, '');
+  const systems = Array.from(checks).map(c => { const o = SYSTEM_SUBS[c.value] ? itSubOf(_p, c.value) : ''; return o ? c.value + ' (' + o + ')' : c.value; });   // 「STK APS (Error / Bug)」(10-16)
   const other = document.getElementById(otherId).value.trim();
   if (other) systems.push(other);
   return systems.join(', ');
@@ -1965,7 +2007,7 @@ function resetForm(prefix) {
     onChangeTypeChange();
   }
   applyFlexApprovers();   // Flex 연동 결재자는 비운 뒤 다시 채운다(10-01)
-  itSapPanel(prefix, false);   // SAP-Be1 요청 구분도 닫고 비운다(10-16)
+  Object.keys(SYSTEM_SUBS).forEach(sys => itSubPanel(prefix, sys, false));   // 요청 구분 칸도 닫고 비운다(10-16)
   itExtra[prefix] = []; itRenderApprLine(prefix);   // 추가 결재자도 비운다(10-02)
 }
 
@@ -2041,9 +2083,9 @@ async function submitTicket(prefix) {
   if (!priority) return alert('우선순위를 선택해주세요.');
   if (!title) return alert('제목을 입력해주세요.');
   if (!a1email) return alert('1차 결재자(Line Manager)를 지정해주세요.');
-  const _sapSub = itSapSub(prefix);
-  const _sapOn = !!document.querySelector('#' + prefix + '-sys-grid input[type="checkbox"][value="' + SAP_SYS + '"]:checked');
-  if (_sapOn && !_sapSub) return alert('STK SAP-Be1 요청 구분을 선택해주세요.');
+  const _subs = itSubsState(prefix);
+  const _subMiss = _subs.find(x => !x.opt);
+  if (_subMiss) return alert(_subMiss.sys + ' 요청 구분을 선택해주세요.');
   itRenderApprLine(prefix);   // CCTR 자동 결재자를 지금 값(설정 · 1차)으로 다시 맞춘다(10-16)
   if (itAutoInfo[prefix] && itAutoInfo[prefix].err) return alert(itAutoInfo[prefix].err);
   const _exList = (itExtra[prefix] || []).slice();
@@ -2208,7 +2250,7 @@ async function submitTicket(prefix) {
       }});
     }
 
-    logChange('IT Ticket', '상신', () => (Object.assign({ 신청번호: Number(reqId), 제목: 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId, 유형: type, 우선순위: priority, 결재단계: approvers.length, 첨부: files.length }, _sapSub ? { 'SAP-Be1 구분': _sapSub } : {}, _exList.some(x => x.auto) ? { 자동결재자: _exList.filter(x => x.auto).map(x => x.role + ' ' + x.name + ' <' + x.email + '>').join(', ') } : {})));   // 10-15 · SAP-Be1 구분 · CCTR 자동 결재자(10-16)
+    logChange('IT Ticket', '상신', () => (Object.assign({ 신청번호: Number(reqId), 제목: 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId, 유형: type, 우선순위: priority, 결재단계: approvers.length, 첨부: files.length }, _subs.length ? { 요청구분: _subs.map(x => x.sys + ': ' + x.opt).join('; ') } : {}, _exList.some(x => x.auto) ? { 자동결재자: _exList.filter(x => x.auto).map(x => x.role + ' ' + x.name + ' <' + x.email + '>').join(', ') } : {})));   // 10-15 · 요청 구분 · CCTR 자동 결재자(10-16)
     showAlert('티켓이 등록되었습니다.', 'IT-'+new Date(new Date().getTime()+9*3600*1000).toISOString().slice(0,10)+'_ID-'+reqId);
     resetForm(prefix);
     switchTab('list');
@@ -2610,7 +2652,7 @@ async function exportITAdminExcel(){
 
     const headers = [
       '번호','티켓 ID','유형','티켓 종류','우선순위','상태',
-      '신청자 이메일','대상 시스템','기타 시스템','SAP-Be1 요청 구분',
+      '신청자 이메일','대상 시스템','기타 시스템','요청 구분',
       '상세 내용(Change/Request)','변경 종류','영향 범위','변경 사유','요청 유형','계정 목적','환경','적용 시작일','적용 종료일',
       '증상 설명','발생 일시','영향 범위(Incident)','임시 해결책',
       '첨부 개수','첨부 파일명',
@@ -2638,7 +2680,7 @@ async function exportITAdminExcel(){
       if (_plText.length > 32000) _plText = _plText.slice(0, 32000) + '\n… (이하 「업무 처리 의견」 시트 참고)';   // Excel 한 칸 한도 32,767자
       return [
         _xlRank(i.id), txt(f.Title), txt(f.TicketType), txt(f.ChangeType||f.ReqType), txt(f.Priority), txt(f.Status),
-        txt(f.RequesterEmail), sys, txt(f.OtherSystem), sapSubOf(sys),
+        txt(f.RequesterEmail), sys, txt(f.OtherSystem), sysSubsOf(sys).map(x => x.sys + ': ' + x.opt).join('; '),
         txt(f.Detail), txt(f.ChangeType), txt(f.Impact), txt(f.ChangeReason),
         txt(f.ReqType), txt(f.AcctPurpose), txt(f.ReqEnv),
         f.ReqFrom?f.ReqFrom.slice(0,10):'', f.ReqTo?f.ReqTo.slice(0,10):'',
@@ -2908,7 +2950,7 @@ async function showDetail(requestId) {
         ? '<span class="badge-' + _myPendingSt + '">' + escHtml(_myPendingSt) + '</span>'
         : '<span class="badge-' + (function(s){var v=(s||'대기').trim();return v.indexOf('철회')===0?'철회':(v==='승인'?'승인완료':v);})(f.Status) + '">' + (f.Status||'대기') + '</span>') +
       rowT('대상 시스템', f.Systems) +
-      (sapSubOf(f.Systems) ? rowT('SAP-Be1 요청 구분', sapSubOf(f.Systems)) : '') +   // 10-16
+      (sysSubsOf(f.Systems).length ? row('요청 구분', sysSubsOf(f.Systems).map(x => escHtml(x.sys + ': ' + x.opt)).join('<br>')) : '') +   // 시스템별 요청 구분(10-16) — 구분 없는 예전 티켓은 줄 없음
       row('등록일', f.RequestDate ? fmtDate(f.RequestDate) : '');
 
     const t = f.TicketType;
@@ -3923,19 +3965,19 @@ function linkifyTicketRefs(text) {
 .appr-block.appr-extra{background:#fffdf5;border-color:#e8cf8f;border-left:3px solid #d9a41a}
 .btn-exdel{float:right;background:#fff;color:#a4262c;border:1px solid #e6b3b3;border-radius:5px;padding:3px 16px;font-size:10px;font-weight:600;cursor:pointer;line-height:1.4}
 .btn-exdel:hover{background:#a4262c;color:#fff;border-color:#a4262c}
-/* STK SAP-Be1 요청 구분(10-16) — SAP-Be1 칸 바로 아래 줄에 한 줄 전체로 펼친다(dense: 같은 줄 남은 칸은 다음 시스템이 채운다) */
+/* 시스템별 요청 구분(10-16) — 체크한 시스템 칸 바로 아래 줄에 한 줄 전체로 펼친다(dense: 같은 줄 남은 칸은 다음 시스템이 채운다) */
 .sys-grid{grid-auto-flow:row dense}
 .sys-sub{grid-column:1/-1;background:#f7fbff;border:1px solid #c7e0f4;border-left:3px solid #0078d4;border-radius:6px;padding:8px 12px 10px;min-width:0}
 .sys-sub[hidden]{display:none}
 .sys-sub-title{font-size:12px;font-weight:700;color:#0b5fa5;margin-bottom:6px}
 .sys-sub-title .req{color:#d83b01}
-.sys-sub-opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.sys-sub-opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .sys-sub-opt{display:flex;align-items:center;gap:6px;min-width:0;padding:6px 10px;border:1px solid #d6e4f2;border-radius:4px;background:#fff;font-size:12px;color:#323130;cursor:pointer;line-height:1.3;overflow-wrap:anywhere}
 .sys-sub-opt:hover{border-color:#0078d4}
 .sys-sub-opt.checked{border-color:#0078d4;background:#e8f2fc;color:#0078d4;font-weight:600}
 .sys-sub-opt input{flex:none;margin:0;accent-color:#0078d4;cursor:pointer}
 .sys-sub-hint{font-size:11px;color:#605e5c;margin-top:6px;line-height:1.5}
-@media (max-width:640px){.sys-sub-opts{grid-template-columns:1fr 1fr}.sys-sub-opt{min-height:40px;padding:6px 8px}}
+@media (max-width:640px){.sys-sub-opts{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.sys-sub-opt{min-height:40px;padding:6px 8px}}
 /* CCTR 자동 결재자 블록(10-16) — 읽기 전용, 지울 수 없음 */
 .appr-tag.cctr{color:#5c2e91;background:#efe6fa}
 .line-step-badge.cctr{background:#8a5cc7}
