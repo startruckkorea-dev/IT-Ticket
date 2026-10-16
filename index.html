@@ -2290,7 +2290,6 @@ function itSyncAuto(p) {
   const info = { notes: [], err: '' }, auto = [], errs = [];
   const low = s => String(s || '').trim().toLowerCase();
   const me = [user && user.email, user && user.username].map(low).filter(Boolean);
-  const a1El = document.getElementById(p + '-a1-email'), a1 = low(a1El && a1El.value);
   const seen = new Set();
   IT_AUTO_GROUPS.filter(g => g.on(p)).forEach(g => {
     const miss = [];
@@ -2310,9 +2309,11 @@ function itSyncAuto(p) {
       }
       const who = (name || email);
       if (me.includes(low(email))) { info.notes.push(role + ' ' + who + ' 님은 신청자 본인이라 결재자에서 제외했습니다.'); return; }
-      if (a1 && low(email) === a1) { info.notes.push(role + ' ' + who + ' 님은 이미 1차 결재자라 한 번만 결재합니다.'); return; }
-      if (seen.has(low(email))) { info.notes.push(role + ' ' + who + ' 님은 앞 단계와 같은 사람이라 한 번만 결재합니다.'); return; }
-      seen.add(low(email));
+      // 1차 결재자(Line Manager)와 같은 사람이어도 빼지 않는다 — 자기 단계에서 다시 결재한다(10-16 사용자 규칙).
+      // 다른 규칙이 같은 역할 · 같은 사람을 또 요구하면(예: SAP-Be1 과 GUMS 의 HR Admin) 한 번만. 역할이 다르면 같은 사람이어도 단계를 따로 둔다.
+      const sk = role + '|' + low(email);
+      if (seen.has(sk)) { info.notes.push(role + ' ' + who + ' 님은 같은 역할로 이미 들어 있어 한 번만 결재합니다.'); return; }
+      seen.add(sk);
       auto.push({ uid: 'itauto-' + p + '-' + g.id + '-' + i, auto: m.id, tag: m.tag, key: m.key, role, dept: '', team: '', name: name || email, email });
     });
     if (miss.length) errs.push(g.what + ' 결재자 설정이 비어 있어 상신할 수 없습니다 — ' + miss.join(', ') + '. IT팀(stk_it@hyosung.com)에 알려주세요.');
@@ -2429,14 +2430,13 @@ function itExPerson(p, uid) {
   const email = document.getElementById(uid + '-person').value;
   const e = employeeData.find(r => r.email === email);
   x.email = e ? e.email : ''; x.name = e ? e.name : '';
-  const why = itExSameAs(p, x);   // 1차 결재자 · 신청자 · 다른 추가 결재자와 같은 사람은 고를 수 없다(10-16 검토)
+  const why = itExSameAs(p, x);   // 신청자 · 자동 결재자 · 다른 추가 결재자와 같은 사람은 고를 수 없다(1차와 같은 사람은 허용)
   if (why) { alert(x.name + ' 님은 ' + why + ' — 다른 결재자를 선택해 주세요.'); x.email = ''; x.name = ''; }
   itRenderApprLine(p);
 }
 function itExSameAs(p, x) {   // 직접 추가한 결재자 x 가 누구와 겹치는지('' = 안 겹침)
   const low = s => String(s || '').trim().toLowerCase(), em = low(x && x.email); if (!em) return '';
-  const a1El = document.getElementById(p + '-a1-email');
-  if (a1El && low(a1El.value) === em) return '1차 결재자와 같은 사람입니다';
+  // 1차 결재자와 같은 사람은 허용한다(자기 단계에서 다시 결재, 10-16 사용자 규칙) — 신청자 · 자동 결재자 · 다른 추가 결재자와 같으면 막는다
   if ([user && user.email, user && user.username].map(low).includes(em)) return '신청자 본인입니다';
   const other = (itExtra[p] || []).find(y => y !== x && low(y.email) === em);
   if (other) return other.auto ? other.tag + ' 자동 결재자로 이미 들어 있습니다' : '이미 다른 추가 결재자로 지정되어 있습니다';
@@ -2563,7 +2563,7 @@ async function submitTicket(prefix) {
   const _autoMails = _exList.filter(x => x.auto).map(x => x.email.toLowerCase());
   const _exDup = _exList.findIndex(x => !x.auto && _autoMails.includes(String(x.email).toLowerCase()));
   if (_exDup >= 0) return alert((_exDup + 2) + '차 추가 결재자(' + _exList[_exDup].name + ')는 ' + _exList.find(x => x.auto && x.email.toLowerCase() === String(_exList[_exDup].email).toLowerCase()).tag + ' 자동 결재자로 이미 들어 있습니다 — 「✕ 삭제」로 지워 주세요.');
-  const _exSame = _exList.findIndex(x => !x.auto && itExSameAs(prefix, x));   // 1차 · 신청자 · 중복(10-16 검토)
+  const _exSame = _exList.findIndex(x => !x.auto && itExSameAs(prefix, x));   // 신청자 · 자동 결재자 · 중복(10-16)
   if (_exSame >= 0) return alert((_exSame + 2) + '차 추가 결재자(' + _exList[_exSame].name + ')는 ' + itExSameAs(prefix, _exList[_exSame]) + ' — 다른 결재자를 선택하거나 「✕ 삭제」로 지워 주세요.');
   const _sapErr = sapAcctCheck(prefix);   // SAP-Be1 요청 상세(10-16)
   if (_sapErr) return alert(_sapErr);
