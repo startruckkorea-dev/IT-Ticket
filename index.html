@@ -1081,7 +1081,7 @@ let _configLoaded = false;
 const IT_MANAGER = { name: 'IT Support', email: '' };
 
 const SYSTEMS = [
-  'STK APS', 'STK WMC', 'STK RAS', 'STK KR-Intranet', 'SharePoint', 'STK Intra CV',
+  'STK APS', 'STK WMC', 'STK KR-Intranet', 'SharePoint',
   'STK SAP-Be1', 'STK WINCMS', 'STK Autofocus DMS', 'STK Autofocus CRM', 'STK VPN', 'STK MKQR', 'STK ICS', 'Shared Service Center',
   'Hyosung M365', 'Hyosung GUMS', 'Hyosung Viva Engage', 'CoD', 'STK Watermark', '기타'
 ];
@@ -1096,15 +1096,13 @@ const SAP_CCTR_KEYS = ['IT_Controlling_Admin', 'IT_Controlling_Manager'];   // �
 const SYSTEM_SUBS = {
   'STK APS':             ['Approval line change', 'Access / Permission', 'Approval delegation', 'Error / Bug', 'Feature change request', 'Other'],
   'STK WMC':             ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
-  'STK RAS':             ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
   'STK KR-Intranet':     ['Account / Login', 'Access / Permission', 'Content / Board update', 'Error / Bug', 'Other'],
-  'SharePoint':          ['Site / Library access', 'Permission change', 'New site / List request', 'File recovery', 'OneDrive sync issue', 'Other'],
-  'STK Intra CV':        ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
+  'SharePoint':          ['Permission change', 'Other'],
   'STK SAP-Be1':         SAP_SUBS,
   'STK WINCMS':          ['Transfer / Payment error', 'Bank interface issue', 'Access / Permission', 'Other'],
-  'STK Autofocus DMS':   ['Account / Login', 'Access / Permission', 'Device registration', 'Error / Bug', 'Other'],
-  'STK Autofocus CRM':   ['Account / Login', 'Access / Permission', 'Device registration', 'Lead / Data correction', 'Error / Bug', 'Other'],
-  'STK VPN':             ['New account', 'Connection issue', 'Device registration', 'Password reset', 'Other'],
+  'STK Autofocus DMS':   ['Account / Login', 'Access / Permission', 'Device registration', 'IP registration', 'Error / Bug', 'Other'],
+  'STK Autofocus CRM':   ['Account / Login', 'Access / Permission', 'Device registration', 'IP registration', 'Lead / Data correction', 'Error / Bug', 'Other'],
+  'STK VPN':             ['New account', 'Connection issue', 'Password reset', 'Other'],
   'STK MKQR':            ['Campaign / QR setup', 'Access / Permission', 'Error / Bug', 'Other'],
   'STK ICS':             ['Access / Permission', 'Control / Evidence update', 'Error / Bug', 'Other'],
   'Shared Service Center': ['Access / Permission', 'Ticket / Workflow issue', 'Error / Bug', 'Other'],
@@ -1114,18 +1112,25 @@ const SYSTEM_SUBS = {
   'CoD':                 ['Replacement', 'Name change / Addition', 'Other'],   // 교체 · 명의 변경 or 추가 · Other
   'STK Watermark':       ['Installation', 'Exception request', 'Error / Bug', 'Other'],
 };
-// 탭별로 빼는 구분(10-16) — Change / Request 탭은 오류를 Incident / Problem 티켓으로 받으므로 「Error / Bug」 를 보이지 않는다.
-// 화면 선택지에서만 뺀다 — 저장값 해석(sysSubsOf)은 전체 목록을 써서 예전 Change 티켓의 「Error / Bug」 도 그대로 보인다.
-const SYSTEM_SUBS_EXCLUDE = { chg: ['Error / Bug'] };
-// 목록에서 빠졌지만 예전 티켓에 저장돼 있을 수 있는 구분 — 저장값 해석에만 쓴다(화면 선택지에는 없음)
-const SYSTEM_SUBS_LEGACY = { 'CoD': ['Access / Permission', 'Error / Bug'] };
+// 탭별로 빼는 구분(10-16) — Change / Request 탭은 오류 · 장애 성격의 구분을 보이지 않는다(Incident / Problem 티켓으로 받는다).
+// 화면 선택지에서만 뺀다 — 저장값 해석(sysSubsOf)은 전체 목록을 써서 예전 Change 티켓의 값도 그대로 보인다.
+const SYSTEM_SUBS_EXCLUDE = { chg: ['Error / Bug', 'Connection issue', 'Ticket / Workflow issue', 'Bank interface issue', 'Transfer / Payment error'] };
+// 목록에서 빠졌지만 예전 티켓에 저장돼 있을 수 있는 시스템 · 구분 — 저장값 해석에만 쓴다(화면 선택지에는 없음)
+const SYSTEMS_LEGACY = ['STK RAS', 'STK Intra CV'];   // 더 쓰지 않는 시스템 — 예전 티켓의 대상 시스템 글자는 그대로 보인다
+const SYSTEM_SUBS_LEGACY = {
+  'STK RAS':      ['Access / Permission', 'Data correction', 'Error / Bug', 'Feature change request', 'Other'],
+  'STK Intra CV': ['Account / Login', 'Access / Permission', 'Error / Bug', 'Other'],
+  'SharePoint':   ['Site / Library access', 'New site / List request', 'File recovery', 'OneDrive sync issue'],
+  'STK VPN':      ['Device registration'],
+  'CoD':          ['Access / Permission', 'Error / Bug'],
+};
 function sysSubsFor(p, sys) { const ex = SYSTEM_SUBS_EXCLUDE[p] || []; return (SYSTEM_SUBS[sys] || []).filter(o => !ex.includes(o)); }
 const sysSlug = s => String(s).replace(/[^a-zA-Z0-9]/g, '');
-// 저장된 Systems 값 → [{sys, opt}] (SYSTEMS 순서). 「시스템 (구분)」 이 값 맨 앞이거나 「, 」 · 「;」 바로 뒤에 있을 때만 — 다른 구분 글자 속 일부와 헷갈리지 않게.
+// 저장된 Systems 값 → [{sys, opt}] (SYSTEMS 순서, 더 쓰지 않는 시스템은 뒤). 「시스템 (구분)」 이 값 맨 앞이거나 「, 」 · 「;」 바로 뒤에 있을 때만 — 다른 구분 글자 속 일부와 헷갈리지 않게.
 // 구분 없이 저장된 예전 티켓은 빈 배열.
 function sysSubsOf(systems) {
   const s = String(systems || ''), out = [];
-  SYSTEMS.forEach(sys => (SYSTEM_SUBS[sys] || []).concat(SYSTEM_SUBS_LEGACY[sys] || []).some(o => {
+  SYSTEMS.concat(SYSTEMS_LEGACY).forEach(sys => (SYSTEM_SUBS[sys] || []).concat(SYSTEM_SUBS_LEGACY[sys] || []).some(o => {
     const tok = sys + ' (' + o + ')';
     for (let i = s.indexOf(tok); i >= 0; i = s.indexOf(tok, i + 1)) {
       const pre = s.slice(0, i).replace(/\s+$/, ''), end = s.slice(i + tok.length).replace(/^\s+/, '');
