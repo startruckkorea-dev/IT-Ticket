@@ -1719,7 +1719,11 @@ async function loadCctrList() {   // ACC Voucher loadCCTRMaster 와 같은 파�
     if (!list.length) throw new Error('CCTR 목록이 비어 있음');
     _cctrList = list; _cctrState = 'ok';
   } catch (e) { console.warn('[CCTR] 로드 실패 — 직접 입력:', e.message); _cctrState = 'fail'; }
-  ['inc', 'chg'].forEach(p => { if (sapAcct[p]) sapAcctRender(p); });
+  ['inc', 'chg'].forEach(sapCctrRefresh);   // CCTR 칸만 다시 그린다 — 다른 칸에서 입력 중인 포커스를 뺏지 않게(10-16 검토)
+}
+function sapCctrRefresh(p) {
+  const a = sapAcct[p], el = document.querySelector('#' + p + '-sap-acct [data-k="cctr"]'); if (!a || !el) return;
+  el.outerHTML = a.opt === SAP_CCTR ? _sapCctr(p, false, '', 'Applicable CCTR', '적용 CCTR') : _sapCctr(p, !a.same, a.same ? '기준 직원과 동일하게 설정 — 선택 사항' : '');
 }
 function _sapLbl(en, ko, req) { return '<div class="sa-label">' + en + ' <span class="ko">' + ko + '</span>' + (req ? ' <span class="req">*</span>' : '') + '</div>'; }
 function _sapSlot(a, key) { const m = /^(cur|req)(\d)$/.exec(key); return m ? a[m[1]][+m[2]] : a[key]; }   // target · appr · ref · cur0~2 · req0~2
@@ -1825,7 +1829,7 @@ function sapAcctRender(p) {
   const a = sapAcct[p];
   // 빨간 안내 — CCTR approval line 이거나 Account change 의 Re-activation 일 때만, 상세 칸 바로 아래
   const notice = !a ? '' : a.opt === SAP_CCTR ? '<b>CCTR approval line</b> requests require additional approval from the Controlling team.'
-    : sapHasReact(a) ? '<b>Account activation / deactivation</b> requests require additional approval from the HR team.' : '';
+    : sapHasReact(a) ? '<b>Account re-activation</b> requests require additional approval from the HR team.' : '';
   if (nt) { nt.innerHTML = notice ? SAP_WARN_SVG + '<span>' + notice + '</span>' : ''; nt.hidden = !notice; }
   if (!a) { box.hidden = true; box.innerHTML = ''; return; }
   const sameNote = a.same ? '기준 직원과 동일하게 설정 — 선택 사항' : '';
@@ -1906,13 +1910,16 @@ function sapAcctBlock(p) {   // 저장 블록 — 「[SAP-Be1 · Account creatio
   return '[SAP-Be1 · ' + a.opt + ']\n' + L.filter(x => x[1]).map(x => x[0] + ': ' + x[1]).join('\n');
 }
 function sapBlockParse(text) {   // 저장된 상세 내용 → { opt, rows:[[키, 값]], start, end } · 없으면 null
+  // 칸 맨 끝의 마지막 블록만 인정한다(10-16 검토) — 사용자가 본문 중간에 블록 모양 글자를 써도 표로 바뀌거나 진짜 블록을 밀어내지 않게.
   const s = String(text || '');
   const keys = Object.keys(SAP_BLOCK_KEYS).map(k => k.replace(/[-/]/g, '\\$&')).join('|');
-  const m = s.match(new RegExp('(^|\\n)\\[SAP-Be1 · (' + Object.keys(SAP_OPT_KO).join('|') + ')\\]\\n((?:(?:' + keys + '): [^\\n]*(?:\\n|$))+)'));
+  const m = s.match(new RegExp('(^|\\n)\\[SAP-Be1 · (' + Object.keys(SAP_OPT_KO).join('|') + ')\\]\\n((?:(?:' + keys + '): [^\\n]*(?:\\n|$))+)\\s*$'));
   if (!m) return null;
   const rows = m[3].split('\n').filter(Boolean).map(l => { const i = l.indexOf(': '); return [l.slice(0, i), l.slice(i + 2)]; });
   return { opt: m[2], rows, start: m.index, end: m.index + m[0].length };
 }
+// 사용자가 쓴 상세 내용에서 줄 머리의 「[SAP-Be1 · 」 를 전각 괄호 「［」 로 바꿔 저장 블록으로 읽히지 않게 한다(보이는 모양은 거의 같다)
+function sapNeutral(t) { return String(t == null ? '' : t).replace(/(^|\n)(\s*)\[SAP-Be1 · /g, '$1$2［SAP-Be1 · '); }
 function syncNoticeBoxes() {
   if (_activeTab !== 'change') {
     // Change탭 아닐 때는 모두 숨김
@@ -2042,6 +2049,7 @@ function onDeptChange(idx, prefix) {
   teamSel.innerHTML = '<option value="">팀</option>' + teams.map(t => '<option value="' + t + '">' + t + '</option>').join('');
   teamSel.disabled = !dept;
   personSel.innerHTML = '<option value="">직원 선택</option>'; personSel.disabled = true;
+  itRenderApprLine(prefix);   // 1차가 비었으니 자동 결재자 중복 안내를 다시 맞춘다(10-16 검토)
 }
 function onTeamChange(idx, prefix) {
   const dept = document.getElementById(prefix + '-a' + idx + '-dept').value;
@@ -2052,6 +2060,7 @@ function onTeamChange(idx, prefix) {
   const persons = employeeData.filter(e => e.dept === dept && e.team === team);
   personSel.innerHTML = '<option value="">직원 선택</option>' + persons.map(p => '<option value="' + p.email + '">' + p.name + '</option>').join('');
   personSel.disabled = !team;
+  itRenderApprLine(prefix);   // 10-16 검토
 }
 function onPersonChange(idx, prefix) {
   const email = document.getElementById(prefix + '-a' + idx + '-person').value;
@@ -2145,6 +2154,7 @@ function itSyncAuto(p) {
   const a1El = document.getElementById(p + '-a1-email'), a1 = low(a1El && a1El.value);
   const seen = new Set();
   IT_AUTO_GROUPS.filter(g => g.on(p)).forEach(g => {
+    if (_sysConfig == null) { errs.push('설정 파일을 읽지 못해 ' + g.what + ' 결재자를 정할 수 없습니다 — 새로고침 후 다시 시도해 주세요.'); return; }   // 키가 비었다고 하지 않는다(10-16 검토)
     const cfg = _sysConfig, miss = [];
     g.keys.forEach((k, i) => {
       const v = cfg && cfg[k], email = v ? String(v.email || '').trim() : '', name = v ? String(v.name || '').trim() : '';
@@ -2158,7 +2168,6 @@ function itSyncAuto(p) {
       auto.push({ uid: 'itauto-' + p + '-' + g.id + '-' + i, auto: g.id, tag: g.tag, key: k, role, dept: '', team: '', name: name || email, email });
     });
     if (miss.length) errs.push(g.what + ' 결재자 설정이 비어 있어 상신할 수 없습니다 — ' + miss.join(', ') + '. IT팀(stk_it@hyosung.com)에 알려주세요.');
-    else if (_sysConfig == null) errs.push('설정 파일을 읽지 못해 ' + g.what + ' 결재자를 정할 수 없습니다 — 새로고침 후 다시 시도해 주세요.');
   });
   info.err = errs.join(' ');
   itExtra[p] = auto.concat(manual);
@@ -2270,7 +2279,18 @@ function itExPerson(p, uid) {
   const email = document.getElementById(uid + '-person').value;
   const e = employeeData.find(r => r.email === email);
   x.email = e ? e.email : ''; x.name = e ? e.name : '';
+  const why = itExSameAs(p, x);   // 1차 결재자 · 신청자 · 다른 추가 결재자와 같은 사람은 고를 수 없다(10-16 검토)
+  if (why) { alert(x.name + ' 님은 ' + why + ' — 다른 결재자를 선택해 주세요.'); x.email = ''; x.name = ''; }
   itRenderApprLine(p);
+}
+function itExSameAs(p, x) {   // 직접 추가한 결재자 x 가 누구와 겹치는지('' = 안 겹침)
+  const low = s => String(s || '').trim().toLowerCase(), em = low(x && x.email); if (!em) return '';
+  const a1El = document.getElementById(p + '-a1-email');
+  if (a1El && low(a1El.value) === em) return '1차 결재자와 같은 사람입니다';
+  if ([user && user.email, user && user.username].map(low).includes(em)) return '신청자 본인입니다';
+  const other = (itExtra[p] || []).find(y => y !== x && low(y.email) === em);
+  if (other) return other.auto ? other.tag + ' 자동 결재자로 이미 들어 있습니다' : '이미 다른 추가 결재자로 지정되어 있습니다';
+  return '';
 }
 
 // ── Reset ──
@@ -2382,6 +2402,8 @@ async function submitTicket(prefix) {
   const _autoMails = _exList.filter(x => x.auto).map(x => x.email.toLowerCase());
   const _exDup = _exList.findIndex(x => !x.auto && _autoMails.includes(String(x.email).toLowerCase()));
   if (_exDup >= 0) return alert((_exDup + 2) + '차 추가 결재자(' + _exList[_exDup].name + ')는 ' + _exList.find(x => x.auto && x.email.toLowerCase() === String(_exList[_exDup].email).toLowerCase()).tag + ' 자동 결재자로 이미 들어 있습니다 — 「✕ 삭제」로 지워 주세요.');
+  const _exSame = _exList.findIndex(x => !x.auto && itExSameAs(prefix, x));   // 1차 · 신청자 · 중복(10-16 검토)
+  if (_exSame >= 0) return alert((_exSame + 2) + '차 추가 결재자(' + _exList[_exSame].name + ')는 ' + itExSameAs(prefix, _exList[_exSame]) + ' — 다른 결재자를 선택하거나 「✕ 삭제」로 지워 주세요.');
   const _sapErr = sapAcctCheck(prefix);   // SAP-Be1 요청 상세(10-16)
   if (_sapErr) return alert(_sapErr);
   const _sapBlock = sapAcctBlock(prefix);
@@ -2400,6 +2422,7 @@ async function submitTicket(prefix) {
     }
   }
 
+  detail = sapNeutral(detail);   // 본문 속 블록 모양 줄 무력화(10-16 검토)
   loading(true);
   try {
     const now = new Date().toISOString();
@@ -2463,10 +2486,11 @@ async function submitTicket(prefix) {
     // Step 2: INC 필드 개별 PATCH
     // SP 내부 필드명 매핑 + Enhanced Rich Text 컬럼은 HTML 래핑 필요
     if (isInc) {
-      const rt = v => v ? '<div>' + v + '</div>' : '';
+      // 서식(Enhanced Rich Text) 칸 — 사용자 글자는 이스케이프하고 한 줄씩 div 로 감싼다(10-16 검토 · 예전에는 그대로 넣어 「<」 뒤가 잘리고 태그가 살아났다). 빈 줄은 <br>.
+      const rt = v => v ? String(v).split('\n').map(l => '<div>' + (escHtml(l) || '<br>') + '</div>').join('') : '';
       const incPatchFields = [
         { IncOccurredAt: fields.IncOccurredAt },
-        { 'OccurredAt_x002c__x0020_Symptom_': rt(fields.Symptom) + (_sapBlock ? _sapBlock.split('\n').map(l => '<div>' + escHtml(l) + '</div>').join('') : '') },   // SAP-Be1 계정 상세 블록은 한 줄씩 감싼다(10-16)
+        { 'OccurredAt_x002c__x0020_Symptom_': rt(fields.Symptom) + (_sapBlock ? '<div><br></div>' + rt(_sapBlock) : '') },   // SAP-Be1 계정 상세 블록은 한 줄씩 감싼다(10-16)
         { 'Detail_x002c__x0020_ChangeType_x': rt(fields.Scope) },
         { Workaround: rt(fields.Workaround) },
       ];
@@ -2957,7 +2981,10 @@ async function exportITAdminExcel(){
     // 번호 = 신청 순서(가장 오래된 건이 1). 내보내는 행 순서와 무관하게 목록 ID 오름차순으로 매긴다(09-10).
     const _xlRank = (() => { const m = new Map(); items.map(x => Number(x.id)).sort((a,b) => a-b).forEach((id,i) => m.set(String(id), i+1)); return id => m.get(String(id)) || ''; })();
     const rows = [headers, ...items.map(i=>{
-      const f = i.fields;
+      const f = Object.assign({}, i.fields);
+      // Incident 칸은 SharePoint 내부 이름으로 온다 — 상세 화면(showDetail)과 같이 맞춘다(10-16 검토). 서식 태그는 아래 txt() 가 벗긴다.
+      f.Symptom = f['OccurredAt_x002c__x0020_Symptom_'] || f.Symptom;
+      f.Scope   = f['Detail_x002c__x0020_ChangeType_x'] || f.Scope;
       const al = apprMap[String(i.id)] || [];
       const a1 = al.find(a=>a.role&&(a.role.includes('Line')||a.order===1)) || al[0] || {};
       const a2 = al.find(a=>a.role&&(a.role.includes('IT')||a.role.includes('담당'))) || al[1] || {};
@@ -3167,7 +3194,8 @@ async function showDetail(requestId) {
     });
     // SAP-Be1 계정 요청 블록(10-16) — 상세 내용 끝의 「[SAP-Be1 · …]」 를 표로 따로 보여 주고 본문에서는 뺀다(블록 없는 예전 티켓은 그대로)
     const _sapBlkK = sapBlockParse(f.Detail) ? 'Detail' : (sapBlockParse(f.Symptom) ? 'Symptom' : '');
-    const _sapBlk = _sapBlkK ? sapBlockParse(f[_sapBlkK]) : null;
+    const _sapBlk0 = _sapBlkK ? sapBlockParse(f[_sapBlkK]) : null;
+    const _sapBlk = _sapBlk0 && sysSubsOf(f.Systems).some(x => x.sys === SAP_SYS && x.opt === _sapBlk0.opt) ? _sapBlk0 : null;   // 대상 시스템에 같은 SAP-Be1 구분이 있을 때만 표로
     if (_sapBlk) f[_sapBlkK] = (f[_sapBlkK].slice(0, _sapBlk.start) + f[_sapBlkK].slice(_sapBlk.end)).trim();
     const sec = (t) => '<div style="margin:16px 0 8px;font-size:13px;font-weight:700;color:#1F4E79;padding:6px 10px;background:#EFF6FF;border-left:3px solid #1F4E79;border-radius:3px">' + t + '</div>';
     // 값에 HTML 을 의도적으로 넣는 자리(배지·linkify 결과)만 row 를 쓰고,
@@ -3247,7 +3275,7 @@ async function showDetail(requestId) {
       rowT('대상 시스템', f.Systems) +
       (sysSubsOf(f.Systems).length ? row('요청 구분', sysSubsOf(f.Systems).map(x => escHtml(x.sys + ': ' + x.opt)).join('<br>')) : '') +   // 시스템별 요청 구분(10-16) — 구분 없는 예전 티켓은 줄 없음
       (_sapBlk ? row('SAP-Be1 요청 상세', '<table class="sa-dl"><tr><th>Request<span>요청</span></th><td>' + escHtml(_sapBlk.opt) + ' · ' + escHtml(SAP_OPT_KO[_sapBlk.opt] || '') + '</td></tr>' +
-        _sapBlk.rows.map(r => '<tr><th>' + escHtml(r[0]) + '<span>' + escHtml(sapKeyKo(_sapBlk.opt, r[0])) + '</span></th><td>' + (r[0] === 'CCTR' ? r[1].split(/\s*;\s*/).map(escHtml).join('<br>') : / → /.test(r[1]) ? r[1].split(' → ').map((x, i) => (i + 1) + '. ' + escHtml(x)).join('<br>') : escHtml(r[1])) + '</td></tr>').join('') + '</table>') : '') +   // CCTR 은 한 줄에 하나
+        _sapBlk.rows.map(r => '<tr><th>' + escHtml(r[0]) + '<span>' + escHtml(sapKeyKo(_sapBlk.opt, r[0])) + '</span></th><td>' + (r[0] === 'CCTR' ? r[1].split(/\s*;\s*/).map(escHtml).join('<br>') : (r[0] === 'Current approval line' || r[0] === 'Requested approval line') && / → /.test(r[1]) ? r[1].split(' → ').map((x, i) => (i + 1) + '. ' + escHtml(x)).join('<br>') : escHtml(r[1])) + '</td></tr>').join('') + '</table>') : '') +   // CCTR 은 한 줄에 하나
       row('등록일', f.RequestDate ? fmtDate(f.RequestDate) : '');
 
     const t = f.TicketType;
