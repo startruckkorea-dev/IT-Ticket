@@ -1805,8 +1805,6 @@ function itSubPanel(p, sys, show) {
 }
 /* 구분별 빨간 안내(10-16) — 고른 구분에 결재가 더 필요할 때만, 그 시스템 구분 칸 안에(SAP-Be1 은 sapAcctRender 가 따로 그린다) */
 const SUB_NOTICES = {
-  'STK Autofocus DMS': { 'Device registration': '기기 등록은 <b>DMS 담당 결재자</b>의 추가 승인이 필요합니다.' },
-  'STK Autofocus CRM': { 'Device registration': '기기 등록은 <b>CRM 담당 임원</b>의 추가 승인이 필요합니다.' },
   'Hyosung GUMS': {
     'Account re-activation': '<b>Account re-activation</b> requests require additional approval from the Department Head and the HR team.',
     'Account deactivation':  '<b>Account deactivation</b> requests require additional approval from the HR team.',
@@ -1832,7 +1830,7 @@ function onSysSub(r) {
   box.querySelectorAll('input[type="radio"]').forEach(x => x.parentElement.classList.toggle('checked', x.checked));
   const _val = r.checked ? r.value : '';   // 선택 해제면 ''
   if (AFS_SYSTEMS.includes(box.dataset.sys)) afsSet(box.id.replace(/-sys-grid-sub-.*$/, ''), box.dataset.sys, _val);
-  if (SUB_NOTICES[box.dataset.sys]) { const _p = box.id.replace(/-sys-grid-sub-.*$/, ''); subNoticeSet(_p, box.dataset.sys, _val); itRenderApprLine(_p); }   // GUMS 자동 결재자
+  if (SUB_NOTICES[box.dataset.sys] || AFS_SYSTEMS.includes(box.dataset.sys)) { const _p = box.id.replace(/-sys-grid-sub-.*$/, ''); subNoticeSet(_p, box.dataset.sys, _val); itRenderApprLine(_p); }   // GUMS · Autofocus 기기 등록 자동 결재자
   if (box.dataset.sys === SAP_SYS) {
     const _p = box.id.replace(/-sys-grid-sub-.*$/, '');
     sapAcctSet(_p, _val);   // 구분을 바꾸면 계정 상세를 새로 연다(계정 구분이 아니면 · 해제면 닫힘)
@@ -2267,7 +2265,46 @@ function afdOverMax(p, sys, a) {   // 종료일이 1년을 넘으면 맞추고 A
   showAlert('사용 기간은 최대 1년입니다', '종료일을 ' + mx + ' 로 맞췄습니다. 1년 뒤에도 필요하면 그때 다시 신청해 주세요.', '⚠️');
   return true;
 }
-const AFD_IMG = 'data:image/png;base64,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';
+// 10-29 예시 그림은 코드에 넣지 않고 STK-DB 문서 라이브러리 맨 위의 이 파일을 읽는다(그림만 바꿔 끼우면 됨) — 화면에는 파일 위치를 내지 않는다
+const AFD_IMG_FILE = 'IT_Ticket_Device_Fingerprint_Guide.png';
+let _afdImg = { url: '', st: '', p: null };   // st: '' 처음 · 'load' 읽는 중 · 'ok' · 'err'
+async function afdImgFetch() {
+  const drives = await api('/sites/' + siteId + '/drives');
+  const d = (drives.value || []).find(x => ['Documents', '문서', 'Shared Documents'].includes(x.name)) || (drives.value || []).find(x => x.driveType === 'documentLibrary') || (drives.value || [])[0];
+  if (!d) throw new Error('drive');
+  const t = await token();
+  const res = await fetch(GRAPH + '/drives/' + d.id + '/root:/' + encodeURIComponent(AFD_IMG_FILE) + ':/content', { headers: { Authorization: 'Bearer ' + t } });
+  if (!res.ok) throw new Error(String(res.status));
+  const b = await res.blob();
+  if (!/^image\//.test(b.type || 'image/png')) throw new Error('type');
+  return URL.createObjectURL(b);
+}
+function afdImgLoad(force) {   // 한 번만 읽고 모든 칸이 같이 쓴다 · 실패하면 2.5초 뒤 한 번 더
+  if (_afdImg.st === 'ok' || (_afdImg.st === 'load' && !force)) return;
+  _afdImg.st = 'load'; afdImgPaint();
+  const once = () => afdImgFetch();
+  _afdImg.p = once().catch(() => new Promise(r => setTimeout(r, 2500)).then(once))
+    .then(u => { _afdImg.url = u; _afdImg.st = 'ok'; }, () => { _afdImg.st = 'err'; })
+    .finally(afdImgPaint);
+}
+function afdImgHtml() {
+  if (_afdImg.st === 'ok') return '<button type="button" class="afd-shotbtn" onclick="afdZoom()" title="눌러서 크게 보기"><img src="' + _afdImg.url + '" alt="접속 제한 화면 예시"><span class="afd-zoom">⤢ 크게 보기</span></button>';
+  if (_afdImg.st === 'err') return '<div class="afd-ph err">예시 그림을 불러오지 못했습니다<button type="button" onclick="afdImgLoad(true)">다시 시도</button></div>';
+  return '<div class="afd-ph">불러오는 중<span class="afd-dots"><i></i><i></i><i></i></span></div>';
+}
+function afdImgPaint() { document.querySelectorAll('.afd-shot .afd-shotbox').forEach(el => { el.innerHTML = afdImgHtml(); }); }
+function afdZoom() {
+  if (_afdImg.st !== 'ok') return;
+  let ov = document.getElementById('afd-lightbox');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'afd-lightbox'; ov.className = 'afd-lightbox'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', '예시 그림 크게 보기');
+    ov.onclick = (e) => { if (e.target === ov || e.target.closest('.afd-lbclose')) ov.classList.remove('show'); };
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ov.classList.remove('show'); });
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = '<div class="afd-lbcard"><button type="button" class="afd-lbclose" aria-label="닫기">✕</button><img src="' + _afdImg.url + '" alt="접속 제한 화면 예시"><div class="afd-lbcap">① Device Fingerprint &nbsp;·&nbsp; ② Fingerprint 복사 — 지문과 IP 일부는 가렸습니다</div></div>';
+  ov.classList.add('show');
+}
 function afdToday() { return new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10); }
 function afdNorm(v) { return String(v || '').replace(/[\s​-‍﻿]+/g, '').toLowerCase(); }
 function afdFpState(v) {   // { ok, msg }
@@ -2314,9 +2351,9 @@ function afdRender(p, sys, box, a) {
       '<ol class="afd-steps">' +
         '<li>등록할 기기에서 <b>' + escHtml(AFD_FP_HOST) + '</b> 접속</li>' +
         '<li>「접속이 제한되었습니다」 화면의 <b>Fingerprint 복사</b></li>' +
-        '<li>아래 칸에 붙여넣기 <span class="afd-mute">· 기기마다 값이 달라요</span></li>' +
+        '<li>아래 칸에 붙여넣기 <span class="afd-mute">· 기기마다 값이 다릅니다.</span></li>' +
       '</ol></div>' +
-      '<figure class="afd-shot"><img src="' + AFD_IMG + '" alt="접속 제한 화면 예시" width="200" height="170" loading="lazy"><figcaption>예시 · 지문과 IP 일부는 가림</figcaption></figure>' +
+      '<figure class="afd-shot"><div class="afd-shotbox">' + afdImgHtml() + '</div><figcaption>예시 · 눌러서 크게 보기</figcaption></figure>' +
     '</div>' +
     '<div class="sa-row" data-k="fp">' +
       '<div class="sa-label">기기 지문 <span class="req">*</span><span class="afd-cnt">' + a.fps.length + ' / ' + AFD_MAX_FP + '대</span></div>' +
@@ -2337,8 +2374,10 @@ function afdRender(p, sys, box, a) {
       '<div class="sa-label">사유 <span class="req">*</span><span class="afd-cnt" id="' + id + '-cnt">' + a.reason.trim().length + ' / ' + AFD_REASON_MAX + '</span></div>' +
       '<textarea class="sa-input" id="' + id + '-reason" rows="2" maxlength="' + AFD_REASON_MAX + '" placeholder="예) 외근용 태블릿 — 고객 상담 시 ' + escHtml(short) + ' 조회" ' +
         'oninput="afsAcc.' + p + '[\'' + q(sys) + '\'].reason=this.value;afdCount(' + P + ')">' + escHtml(a.reason) + '</textarea>' +
-    '</div>';
+    '</div>' +
+    '<div class="sys-sub-hint afd-note" role="note">' + SAP_WARN_SVG + '<span>기기 등록은 <b>' + escHtml(short) + ' 담당 임직원</b>의 추가 승인이 필요합니다.</span></div>';
   box.hidden = false;
+  afdImgLoad();   // 예시 그림(처음 한 번)
 }
 function afdFp(p, sys, i, v) {
   const a = afsAcc[p][sys]; if (!a) return; a.fps[i] = v;
@@ -2438,7 +2477,7 @@ function onSysCheck(cb) {
   if (SYSTEM_SUBS[cb.value]) {   // 시스템별 요청 구분 칸 — 두 탭 모두(10-16). 해제하면 고른 값도 지운다(SAP-Be1 은 CCTR 자동 결재자도)
     const _p = (cb.closest('.sys-grid') || { id: '' }).id.replace(/-sys-grid$/, '');
     itSubPanel(_p, cb.value, cb.checked);
-    if (cb.value === SAP_SYS || SUB_NOTICES[cb.value]) itRenderApprLine(_p);
+    if (cb.value === SAP_SYS || SUB_NOTICES[cb.value] || AFS_SYSTEMS.includes(cb.value)) itRenderApprLine(_p);
   }
   // Change탭일 때만 CoD/VPN 안내 박스 토글
   if (typeof _activeTab !== 'undefined' && _activeTab !== 'change') return;
@@ -4913,8 +4952,27 @@ textarea.sa-input{resize:vertical;min-height:64px;line-height:1.5}
 .afd-steps li{counter-increment:afd;position:relative;padding:3px 0 3px 26px;font-size:12.5px;color:#323130;line-height:1.55}
 .afd-steps li::before{content:counter(afd);position:absolute;left:0;top:4px;width:18px;height:18px;border-radius:50%;background:#d9480f;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
 .afd-mute{color:#8a8886}
-.afd-shot{margin:0;text-align:center}.afd-shot img{display:block;width:100%;height:auto;border:1px solid #dbe8f5;border-radius:6px;background:#fff}
+.afd-shot{margin:0;text-align:center}
+.afd-shotbox{min-height:150px;display:flex;align-items:center;justify-content:center}
+.afd-shotbtn{position:relative;display:block;width:100%;padding:0;border:1px solid #dbe8f5;border-radius:6px;background:#fff;cursor:zoom-in;overflow:hidden}
+.afd-shotbtn img{display:block;width:100%;height:auto}
+.afd-zoom{position:absolute;right:6px;bottom:6px;padding:2px 8px;border-radius:10px;background:rgba(11,61,107,.78);color:#fff;font-size:10.5px;opacity:0;transition:opacity .15s}
+.afd-shotbtn:hover .afd-zoom,.afd-shotbtn:focus-visible .afd-zoom{opacity:1}
+.afd-ph{width:100%;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px dashed #c7d6e8;border-radius:6px;background:#fff;font-size:11.5px;color:#8a8886}
+.afd-ph.err{color:#a4262c;border-color:#f1c0c4;background:#fffafa}
+.afd-ph button{border:1px solid #c8c6c4;background:#fff;border-radius:12px;padding:2px 10px;font-size:11px;cursor:pointer;font-family:inherit;color:#323130}
+.afd-dots{display:inline-flex;gap:3px;margin-left:4px;vertical-align:middle}.afd-dots i{width:4px;height:4px;border-radius:50%;background:#8a8886;animation:afdDot 1.2s infinite ease-in-out}
+.afd-dots i:nth-child(2){animation-delay:.2s}.afd-dots i:nth-child(3){animation-delay:.4s}
+@keyframes afdDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
 .afd-shot figcaption{font-size:10.5px;color:#a19f9d;margin-top:4px}
+.afd-lightbox{position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.55);padding:20px}
+.afd-lightbox.show{display:flex}
+.afd-lbcard{position:relative;background:#fff;border-radius:12px;padding:16px;box-shadow:0 18px 48px rgba(0,0,0,.25);max-width:min(720px,94vw);max-height:92vh;overflow:auto}
+.afd-lbcard img{display:block;width:100%;height:auto;border:1px solid #e1e6ee;border-radius:8px}
+.afd-lbcap{margin-top:8px;font-size:12px;color:#605e5c;text-align:center}
+.afd-lbclose{position:absolute;top:8px;right:8px;width:30px;height:30px;border:none;border-radius:50%;background:#f3f2f1;color:#323130;font-size:14px;cursor:pointer}
+.afd-lbclose:hover{background:#e1dfdd}
+.afd-note{margin:2px 0 4px}
 .afd-cnt{float:right;font-size:11px;font-weight:400;color:#8a8886}
 .afd-fprow{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:6px;align-items:center;margin-bottom:6px}
 .afd-no{font-size:11px;font-weight:700;color:#8a8886;text-align:center}
