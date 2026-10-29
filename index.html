@@ -1805,8 +1805,8 @@ function itSubPanel(p, sys, show) {
 }
 /* 구분별 빨간 안내(10-16) — 고른 구분에 결재가 더 필요할 때만, 그 시스템 구분 칸 안에(SAP-Be1 은 sapAcctRender 가 따로 그린다) */
 const SUB_NOTICES = {
-  'STK Autofocus DMS': { 'Device registration': '<b>Device registration</b> requires additional approval from the DMS executive in charge. · 기기 등록은 DMS 담당 임원의 추가 승인이 필요합니다.' },
-  'STK Autofocus CRM': { 'Device registration': '<b>Device registration</b> requires additional approval from the CRM executives in charge. · 기기 등록은 CRM 담당 임원의 추가 승인이 필요합니다.' },
+  'STK Autofocus DMS': { 'Device registration': '기기 등록은 <b>DMS 담당 결재자</b>의 추가 승인이 필요합니다.' },
+  'STK Autofocus CRM': { 'Device registration': '기기 등록은 <b>CRM 담당 임원</b>의 추가 승인이 필요합니다.' },
   'Hyosung GUMS': {
     'Account re-activation': '<b>Account re-activation</b> requests require additional approval from the Department Head and the HR team.',
     'Account deactivation':  '<b>Account deactivation</b> requests require additional approval from the HR team.',
@@ -2178,7 +2178,7 @@ function blkTable(b) {   // 상세 화면 표 하나
       (r[0] === 'CCTR' ? r[1].split(/\s*;\s*/).map(escHtml).join('<br>')
         : (r[0] === 'Current approval line' || r[0] === 'Requested approval line') && / → /.test(r[1]) ? r[1].split(' → ').map((x, i) => (i + 1) + '. ' + escHtml(x)).join('<br>')
         : r[0] === 'Dealer contact' ? r[1].split(' / ').map(escHtml).join('<br>')
-        : r[0] === 'Device fingerprint' ? '<span class="afd-fpval">' + escHtml(r[1]) + '</span>'
+        : r[0] === 'Device fingerprint' ? '<span class="afd-fpval">' + r[1].split(/\s*\/\s*/).map((x, i, all) => (all.length > 1 ? (i + 1) + '. ' : '') + escHtml(x)).join('<br>') + '</span>'
         : escHtml(r[1])) + '</td></tr>').join('') + '</table>';
 }
 
@@ -2201,7 +2201,7 @@ const AFS_PARTY = {
 const afsAcc = { inc: {}, chg: {} };
 function afsSet(p, sys, opt) {
   afsAcc[p][sys] = opt === AFS_OPT ? { from: '', to: '', reason: '', party: '', cemail: '' }
-    : opt === AFS_DEV ? { mode: 'dev', fp: '', from: afdToday(), to: '', reason: '' } : null;
+    : opt === AFS_DEV ? { mode: 'dev', fps: [''], from: afdToday(), to: '', reason: '' } : null;
   afsRender(p, sys);
 }
 function afsRender(p, sys) {
@@ -2242,7 +2242,7 @@ function afsBlocks(p) {   // 시스템 순서(DMS → CRM)대로 블록 글자
   const one = x => String(x || '').replace(/\s*\n+\s*/g, ' / ').trim();
   return AFS_SYSTEMS.filter(sys => afsAcc[p][sys] && (afsAcc[p][sys].mode === 'dev' ? itSubOf(p, sys) === AFS_DEV : itSubOf(p, sys) === AFS_OPT)).map(sys => {
     const a = afsAcc[p][sys];
-    if (a.mode === 'dev') return '[' + sys + ' · ' + AFS_DEV + ']\nDevice fingerprint: ' + afdNorm(a.fp) + '\nUsage period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason);
+    if (a.mode === 'dev') return '[' + sys + ' · ' + AFS_DEV + ']\nDevice fingerprint: ' + a.fps.map(afdNorm).filter(Boolean).join(' / ') + '\nUsage period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason);
     const Y = AFS_PARTY[sys];
     return '[' + sys + ' · ' + AFS_OPT + ']\nAccess period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason) + '\n' + Y.key + ': ' + one(a.party) +
       '\n' + Y.mailKey + ': ' + one(a.cemail);
@@ -2273,8 +2273,8 @@ function afdNorm(v) { return String(v || '').replace(/[\s​-‍﻿]+/g, '').toL
 function afdFpState(v) {   // { ok, msg }
   const n = afdNorm(v);
   if (!n) return { ok: false, msg: '' };
-  if (!/^[0-9a-f]+$/.test(n)) return { ok: false, msg: '0-9 · a-f 만 들어갈 수 있어요 — 화면의 「Fingerprint 복사」 로 다시 복사해 붙여 넣어 주세요.' };
-  if (n.length < 32 || n.length > 128) return { ok: false, msg: '길이가 맞지 않아요(지금 ' + n.length + '자리 · 보통 64자리) — 끝까지 복사됐는지 확인해 주세요.' };
+  if (!/^[0-9a-f]+$/.test(n)) return { ok: false, msg: '형식이 달라요 — 「Fingerprint 복사」 로 다시 복사해 주세요.' };
+  if (n.length < 32 || n.length > 128) return { ok: false, msg: '길이가 맞지 않아요(' + n.length + '자리 · 보통 64자리).' };
   return { ok: true, msg: n.length + '자리 확인됨' };
 }
 function afdDays(a) {
@@ -2287,77 +2287,82 @@ function afdAddMonths(ymd, m) {   // 시작일 + m개월 − 1일(같은 날짜�
   const t = new Date(Date.UTC(y, mo - 1 + m, Math.min(d, last)) - 864e5);
   return t.toISOString().slice(0, 10);
 }
+const AFD_MAX_FP = 5;   // 10-29 한 번에 기기 최대 5대
 function afdRender(p, sys, box, a) {
-  const id = p + '-afs-' + sysSlug(sys), st = 'afsAcc.' + p + '[\'' + sys + '\']', short = sys.replace('STK Autofocus ', '');
-  const q = s2 => s2.replace(/'/g, "\\'");
-  const other = AFS_SYSTEMS.find(x => x !== sys && afsAcc[p][x] && afsAcc[p][x].mode === 'dev' && itSubOf(p, x) === AFS_DEV && afdNorm(afsAcc[p][x].fp));
-  const fs = afdFpState(a.fp), days = afdDays(a);
-  const quick = [[1, '1개월'], [3, '3개월'], [6, '6개월'], [12, '1년']].map(([m, t]) => {
-    const on = a.from && a.to === afdAddMonths(a.from, m);
-    return '<button type="button" class="afd-chip' + (on ? ' on' : '') + '" onclick="afdQuick(\'' + p + '\',\'' + q(sys) + '\',' + m + ')">' + t + '</button>';
+  const id = p + '-afs-' + sysSlug(sys), q = s2 => s2.replace(/'/g, "\\'"), P = '\'' + p + '\',\'' + q(sys) + '\'';
+  const short = sys.replace('STK Autofocus ', '');
+  const other = AFS_SYSTEMS.find(x => x !== sys && afsAcc[p][x] && afsAcc[p][x].mode === 'dev' && itSubOf(p, x) === AFS_DEV && afsAcc[p][x].fps.some(afdNorm));
+  const days = afdDays(a);
+  const quick = [[1, '1개월'], [3, '3개월'], [6, '6개월'], [12, '1년']].map(([m, t]) =>
+    '<button type="button" class="afd-chip' + (a.from && a.to === afdAddMonths(a.from, m) ? ' on' : '') + '" onclick="afdQuick(' + P + ',' + m + ')">' + t + '</button>').join('');
+  const rows = a.fps.map((v, i) => {
+    const fs = afdFpState(v);
+    return '<div class="afd-fprow' + (fs.ok ? ' ok' : fs.msg ? ' bad' : '') + '" id="' + id + '-fprow' + i + '">' +
+      '<span class="afd-no">' + (i + 1) + '</span>' +
+      '<input type="text" class="sa-input afd-fp" id="' + id + '-fp' + i + '" value="' + escHtml(v) + '" placeholder="Fingerprint 붙여넣기 (64자리)" autocomplete="off" spellcheck="false" ' +
+        'oninput="afdFp(' + P + ',' + i + ',this.value)" onblur="this.value=afdNorm(this.value);afdFp(' + P + ',' + i + ',this.value)">' +
+      '<button type="button" class="afd-ibtn" title="붙여넣기" onclick="afdPaste(' + P + ',' + i + ')">붙여넣기</button>' +
+      '<button type="button" class="afd-ibtn del" title="이 기기 빼기" aria-label="' + (i + 1) + '번 기기 빼기" onclick="afdDel(' + P + ',' + i + ')"' + (a.fps.length < 2 ? ' disabled' : '') + '>−</button>' +
+      '<div class="afd-fpmsg" id="' + id + '-fpmsg' + i + '">' + escHtml(fs.ok ? '' : fs.msg) + '</div>' +
+    '</div>';
   }).join('');
   box.innerHTML =
-    '<div class="sa-head">' + escHtml(sys) + ' · Device registration <span class="ko">기기 등록</span></div>' +
-    '<div class="afd-guide">' +
-      '<div class="afd-steps">' +
-        '<div class="afd-gtitle">Device Fingerprint 받는 방법 <span>How to get it</span></div>' +
-        (short === 'DMS' ? '<div class="afd-where"><span class="ic">i</span><div><b>DMS 기기 등록도 CRM 주소에서 지문을 받습니다.</b><br>지문을 보여 주는 화면은 CRM 에만 있어요 — DMS 주소가 아닌 아래 CRM 주소로 접속해 주세요.' +
-          '<div class="en">The fingerprint is shown only on the CRM site — use the CRM address for DMS too.</div></div></div>' : '') +
-        '<div class="afd-step"><span class="n">1</span><div>등록할 기기(PC · 태블릿)에서 <b>' + escHtml(AFD_FP_HOST) + '</b> 에 접속합니다.' +
-          '<div class="en">Open ' + escHtml(AFD_FP_HOST) + ' on the device to register.</div></div></div>' +
-        '<div class="afd-step"><span class="n">2</span><div>「접속이 제한되었습니다」 화면에서 <b>Fingerprint 복사</b>를 누릅니다.<div class="en">On the “Access restricted” screen, click <i>Fingerprint 복사</i>.</div></div></div>' +
-        '<div class="afd-step"><span class="n">3</span><div>아래 <b>Device Fingerprint</b> 칸에 붙여 넣습니다(Ctrl + V).<div class="en">Paste it into the field below.</div></div></div>' +
-        '<div class="afd-tip">기기마다 값이 다릅니다 — 반드시 <b>등록할 그 기기</b>에서 복사해 주세요.</div>' +
-      '</div>' +
-      '<figure class="afd-shot"><img src="' + AFD_IMG + '" alt="접속 제한 화면 예시 — ① Device Fingerprint ② Fingerprint 복사" width="300" height="256" loading="lazy">' +
-        '<figcaption>예시 화면 · 지문과 IP 일부는 가렸습니다</figcaption></figure>' +
+    '<div class="sa-head">' + escHtml(sys) + ' · 기기 등록' +
+      (other ? '<button type="button" class="afd-copy" onclick="afdCopyFrom(' + P + ',\'' + q(other) + '\')">' + escHtml(other.replace('STK Autofocus ', '')) + ' 입력 내용 그대로 쓰기</button>' : '') + '</div>' +
+    '<div class="afd-guide"><div>' +
+      (short === 'DMS' ? '<div class="afd-where"><b>DMS도 CRM 주소에서</b> 지문을 받습니다 — 지문 화면은 CRM에만 있어요.</div>' : '') +
+      '<ol class="afd-steps">' +
+        '<li>등록할 기기에서 <b>' + escHtml(AFD_FP_HOST) + '</b> 접속</li>' +
+        '<li>「접속이 제한되었습니다」 화면의 <b>Fingerprint 복사</b></li>' +
+        '<li>아래 칸에 붙여넣기 <span class="afd-mute">· 기기마다 값이 달라요</span></li>' +
+      '</ol></div>' +
+      '<figure class="afd-shot"><img src="' + AFD_IMG + '" alt="접속 제한 화면 예시" width="200" height="170" loading="lazy"><figcaption>예시 · 지문과 IP 일부는 가림</figcaption></figure>' +
     '</div>' +
-    '<div class="sa-row" data-k="fp">' + _sapLbl('Device Fingerprint', '기기 지문', true) +
-      '<div class="afd-fpwrap' + (fs.ok ? ' ok' : fs.msg ? ' bad' : '') + '" id="' + id + '-fpwrap">' +
-        '<input type="text" class="sa-input afd-fp" id="' + id + '-fp" value="' + escHtml(a.fp) + '" placeholder="예) 44c01e3034783960 … (64자리)" autocomplete="off" spellcheck="false" ' +
-          'oninput="afdFp(\'' + p + '\',\'' + q(sys) + '\',this.value)" onblur="this.value=afdNorm(this.value);afdFp(\'' + p + '\',\'' + q(sys) + '\',this.value)">' +
-        '<button type="button" class="afd-paste" onclick="afdPaste(\'' + p + '\',\'' + q(sys) + '\')">붙여넣기</button>' +
-      '</div>' +
-      '<div class="afd-fpmsg' + (fs.ok ? ' ok' : '') + '" id="' + id + '-fpmsg">' + (fs.ok ? '✓ ' : '') + escHtml(fs.msg) + '</div>' +
+    '<div class="sa-row" data-k="fp">' +
+      '<div class="sa-label">기기 지문 <span class="req">*</span><span class="afd-cnt">' + a.fps.length + ' / ' + AFD_MAX_FP + '대</span></div>' +
+      rows +
+      (a.fps.length < AFD_MAX_FP ? '<button type="button" class="afd-add" onclick="afdAdd(' + P + ')">+ 기기 추가</button>' : '') +
     '</div>' +
-    '<div class="sa-row" data-k="period">' + _sapLbl('Usage period', '사용 기간', true) +
+    '<div class="sa-row" data-k="period">' +
+      '<div class="sa-label">사용 기간 <span class="req">*</span><span class="afd-cnt">최대 1년</span></div>' +
       '<div class="afd-period">' +
-        '<input type="date" class="sa-input" id="' + id + '-from" value="' + escHtml(a.from) + '" onchange="afdFrom(\'' + p + '\',\'' + q(sys) + '\',this.value)">' +
+        '<input type="date" class="sa-input" id="' + id + '-from" value="' + escHtml(a.from) + '" onchange="afdFrom(' + P + ',this.value)">' +
         '<span class="afs-tilde">~</span>' +
-        '<input type="date" class="sa-input" id="' + id + '-to" value="' + escHtml(a.to) + '"' + (a.from ? ' min="' + escHtml(a.from) + '" max="' + escHtml(afdMaxTo(a.from)) + '"' : '') + ' onchange="afdTo(\'' + p + '\',\'' + q(sys) + '\',this.value)">' +
-        '<span class="afd-days" id="' + id + '-days">' + (days ? '총 ' + days + '일' : '') + '</span>' +
+        '<input type="date" class="sa-input" id="' + id + '-to" value="' + escHtml(a.to) + '"' + (a.from ? ' min="' + escHtml(a.from) + '" max="' + escHtml(afdMaxTo(a.from)) + '"' : '') + ' onchange="afdTo(' + P + ',this.value)">' +
+        '<span class="afd-days" id="' + id + '-days">' + (days ? days + '일' : '') + '</span>' +
+        '<span class="afd-chips">' + quick + '</span>' +
       '</div>' +
-      '<div class="afd-chips">' + quick + '<span class="afd-chiphint">시작일부터 · <b>최대 1년</b></span></div>' +
     '</div>' +
-    '<div class="sa-row" data-k="reason">' + _sapLbl('Reason', '사유', true) +
-      '<textarea class="sa-input" id="' + id + '-reason" rows="3" maxlength="' + AFD_REASON_MAX + '" placeholder="어떤 업무에 이 기기가 필요한지 적어 주세요.&#10;예) 신규 입사자 업무용 노트북 — 고객 상담 · 견적 작성에 ' + escHtml(short) + ' 사용" ' +
-        'oninput="' + st + '.reason=this.value;afdCount(\'' + p + '\',\'' + q(sys) + '\')">' + escHtml(a.reason) + '</textarea>' +
-      '<div class="afd-count" id="' + id + '-cnt">' + a.reason.trim().length + ' / ' + AFD_REASON_MAX + '</div>' +
-    '</div>' +
-    (other ? '<button type="button" class="afd-copy" onclick="afdCopyFrom(\'' + p + '\',\'' + q(sys) + '\',\'' + q(other) + '\')">↺ ' + escHtml(other.replace('STK Autofocus ', '')) + ' 에 입력한 지문 · 기간 · 사유 그대로 쓰기</button>' : '');
+    '<div class="sa-row" data-k="reason">' +
+      '<div class="sa-label">사유 <span class="req">*</span><span class="afd-cnt" id="' + id + '-cnt">' + a.reason.trim().length + ' / ' + AFD_REASON_MAX + '</span></div>' +
+      '<textarea class="sa-input" id="' + id + '-reason" rows="2" maxlength="' + AFD_REASON_MAX + '" placeholder="예) 외근용 태블릿 — 고객 상담 시 ' + escHtml(short) + ' 조회" ' +
+        'oninput="afsAcc.' + p + '[\'' + q(sys) + '\'].reason=this.value;afdCount(' + P + ')">' + escHtml(a.reason) + '</textarea>' +
+    '</div>';
   box.hidden = false;
 }
-function afdFp(p, sys, v) {
-  const a = afsAcc[p][sys]; if (!a) return; a.fp = v;
+function afdFp(p, sys, i, v) {
+  const a = afsAcc[p][sys]; if (!a) return; a.fps[i] = v;
   const id = p + '-afs-' + sysSlug(sys), fs = afdFpState(v);
-  const w = document.getElementById(id + '-fpwrap'), m = document.getElementById(id + '-fpmsg');
-  if (w) w.className = 'afd-fpwrap' + (fs.ok ? ' ok' : fs.msg ? ' bad' : '');
-  if (m) { m.className = 'afd-fpmsg' + (fs.ok ? ' ok' : ''); m.textContent = (fs.ok ? '✓ ' : '') + fs.msg; }
+  const r = document.getElementById(id + '-fprow' + i), m = document.getElementById(id + '-fpmsg' + i);
+  if (r) r.className = 'afd-fprow' + (fs.ok ? ' ok' : fs.msg ? ' bad' : '');
+  if (m) m.textContent = fs.ok ? '' : fs.msg;
 }
-async function afdPaste(p, sys) {
-  const el = document.getElementById(p + '-afs-' + sysSlug(sys) + '-fp');
-  try {
-    const t = await navigator.clipboard.readText();
-    if (el) { el.value = afdNorm(t); afdFp(p, sys, el.value); }
-  } catch (e) {   // 브라우저가 클립보드 읽기를 막으면 칸에 커서만 두고 Ctrl + V 안내
+async function afdPaste(p, sys, i) {
+  const el = document.getElementById(p + '-afs-' + sysSlug(sys) + '-fp' + i);
+  try { const t = await navigator.clipboard.readText(); if (el) { el.value = afdNorm(t); afdFp(p, sys, i, el.value); } }
+  catch (e) {   // 클립보드 읽기를 막는 브라우저 — 칸을 고르고 Ctrl + V 안내
     if (el) { el.focus(); el.select(); }
-    const m = document.getElementById(p + '-afs-' + sysSlug(sys) + '-fpmsg');
-    if (m) { m.className = 'afd-fpmsg'; m.textContent = '이 브라우저는 붙여넣기 단추를 막았어요 — 칸을 누르고 Ctrl + V 로 붙여 넣어 주세요.'; }
+    const m = document.getElementById(p + '-afs-' + sysSlug(sys) + '-fpmsg' + i); if (m) m.textContent = '칸을 누르고 Ctrl + V 로 붙여 넣어 주세요.';
   }
 }
-function afdRefreshDays(p, sys) {
-  const a = afsAcc[p][sys], d = document.getElementById(p + '-afs-' + sysSlug(sys) + '-days');
-  if (d) { const n = afdDays(a); d.textContent = n ? '총 ' + n + '일' : ''; }
+function afdAdd(p, sys) {
+  const a = afsAcc[p][sys]; if (!a || a.fps.length >= AFD_MAX_FP) return;
+  a.fps.push(''); afsRender(p, sys);
+  const el = document.getElementById(p + '-afs-' + sysSlug(sys) + '-fp' + (a.fps.length - 1)); if (el) el.focus();
+}
+function afdDel(p, sys, i) {
+  const a = afsAcc[p][sys]; if (!a || a.fps.length < 2) return;
+  a.fps.splice(i, 1); afsRender(p, sys);
 }
 function afdFrom(p, sys, v) {
   const a = afsAcc[p][sys]; if (!a) return; a.from = v;
@@ -2378,14 +2383,18 @@ function afdCount(p, sys) {
 }
 function afdCopyFrom(p, sys, from) {
   const a = afsAcc[p][sys], b = afsAcc[p][from]; if (!a || !b) return;
-  a.fp = b.fp; a.from = b.from; a.to = b.to; a.reason = b.reason;
+  a.fps = b.fps.slice(); a.from = b.from; a.to = b.to; a.reason = b.reason;
   afsRender(p, sys);
 }
 function afdCheck(sys, a) {   // '' = 통과
-  const P = sys + ' · Device registration — ';
-  const fs = afdFpState(a.fp);
-  if (!afdNorm(a.fp)) return P + 'Device Fingerprint(기기 지문)를 붙여 넣어 주세요.';
-  if (!fs.ok) return P + 'Device Fingerprint(기기 지문): ' + fs.msg;
+  const P = sys + ' · 기기 등록 — ';
+  const list = a.fps.map(afdNorm);
+  for (let i = 0; i < list.length; i++) {
+    if (!list[i]) return P + (list.length > 1 ? (i + 1) + '번 기기 지문을 붙여 넣거나 [−] 로 빼 주세요.' : '기기 지문을 붙여 넣어 주세요.');
+    const fs = afdFpState(list[i]); if (!fs.ok) return P + (list.length > 1 ? (i + 1) + '번 ' : '') + '기기 지문: ' + fs.msg;
+    if (list.indexOf(list[i]) !== i) return P + (i + 1) + '번 기기 지문이 ' + (list.indexOf(list[i]) + 1) + '번과 같습니다.';
+  }
+  if (list.length > AFD_MAX_FP) return P + '기기는 한 번에 ' + AFD_MAX_FP + '대까지 신청할 수 있습니다.';
   if (!a.from || !a.to) return P + '사용 기간 시작일과 종료일을 입력해 주세요.';
   if (a.to < a.from) return P + '사용 기간 종료일은 시작일과 같거나 뒤여야 합니다.';
   if (a.to > afdMaxTo(a.from)) return P + '사용 기간은 최대 1년입니다 — 종료일을 ' + afdMaxTo(a.from) + ' 까지로 정해 주세요.';
@@ -4898,32 +4907,34 @@ textarea.sa-input{resize:vertical;min-height:64px;line-height:1.5}
 .appr-block.appr-extra.appr-auto.appr-auto-dms{background:#fffaf6;border-color:#f3d4bd;border-left:3px solid #c2581c}
 .appr-tag.crm{color:#1e40af;background:#e6edfc}.line-step-badge.crm{background:#2f5fd0}
 .appr-block.appr-extra.appr-auto.appr-auto-crm{background:#f7f9ff;border-color:#c9d6f5;border-left:3px solid #2f5fd0}
-.afd-guide{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start;margin:2px 0 12px;padding:12px;background:linear-gradient(180deg,#f7fbff,#f2f7fd);border:1px solid #d6e4f2;border-radius:8px}
-.afd-gtitle{font-size:12.5px;font-weight:700;color:#0b3d6b;margin-bottom:8px}.afd-gtitle span{font-weight:400;color:#8a8886;font-size:11px;margin-left:4px}
-.afd-step{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:#323130;line-height:1.55;margin-bottom:8px}
-.afd-step .n{flex:none;width:20px;height:20px;border-radius:50%;background:#d9480f;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
-.afd-step .en{font-size:10.5px;color:#8a8886}
-.afd-where{display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;padding:8px 10px;background:#eef5ff;border:1px solid #bcd6f5;border-left:3px solid #0b5fa5;border-radius:6px;font-size:11.5px;color:#1f3a5c;line-height:1.55}
-.afd-where .ic{flex:none;width:16px;height:16px;border-radius:50%;background:#0b5fa5;color:#fff;font:700 11px/16px Georgia,serif;text-align:center;margin-top:1px}
-.afd-where b{color:#0b3d6b}.afd-where .en{font-size:10.5px;color:#6b7c93;margin-top:2px}
-.afd-tip{font-size:11px;color:#9F1D1D;background:#fdf0f1;border:1px solid #f1c0c4;border-radius:4px;padding:5px 8px;line-height:1.5}
-.afd-shot{margin:0;text-align:center}.afd-shot img{display:block;width:100%;height:auto;border:1px solid #d6e4f2;border-radius:6px;background:#fff;box-shadow:0 2px 8px rgba(11,61,107,.08)}
-.afd-shot figcaption{font-size:10.5px;color:#8a8886;margin-top:5px}
-.afd-fpwrap{display:flex;gap:6px;align-items:stretch}.afd-fpwrap .afd-fp{font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:12.5px;letter-spacing:.3px}
-.afd-fpwrap.ok .afd-fp{border-color:#107c10;background:#f6fbf6}.afd-fpwrap.bad .afd-fp{border-color:#d83b01;background:#fffaf8}
-.afd-paste{flex:none;border:1px solid #0078d4;background:#fff;color:#0078d4;border-radius:4px;padding:0 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
-.afd-paste:hover{background:#0078d4;color:#fff}
-.afd-fpmsg{font-size:11px;color:#a4262c;margin-top:4px;min-height:15px;line-height:1.4}.afd-fpmsg.ok{color:#107c10;font-weight:600}
-.afd-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.afd-period .sa-input{width:auto;min-width:150px;flex:0 1 170px}
-.afd-days{font-size:12px;font-weight:700;color:#0b5fa5;background:#e8f2fc;border-radius:10px;padding:2px 10px}.afd-days:empty{display:none}
-.afd-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px}
-.afd-chip{border:1px solid #c8c6c4;background:#fff;color:#323130;border-radius:14px;padding:3px 12px;font-size:11.5px;cursor:pointer;font-family:inherit}
+.afd-guide{display:grid;grid-template-columns:minmax(0,1fr) 200px;gap:14px;align-items:center;margin:2px 0 12px;padding:12px 14px;background:#f7fbff;border:1px solid #dbe8f5;border-radius:8px}
+.afd-where{margin:0 0 8px;padding:6px 10px;background:#e8f1fc;border-radius:6px;font-size:12px;color:#1f3a5c;line-height:1.5}.afd-where b{color:#0b3d6b}
+.afd-steps{margin:0;padding:0;list-style:none;counter-reset:afd}
+.afd-steps li{counter-increment:afd;position:relative;padding:3px 0 3px 26px;font-size:12.5px;color:#323130;line-height:1.55}
+.afd-steps li::before{content:counter(afd);position:absolute;left:0;top:4px;width:18px;height:18px;border-radius:50%;background:#d9480f;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.afd-mute{color:#8a8886}
+.afd-shot{margin:0;text-align:center}.afd-shot img{display:block;width:100%;height:auto;border:1px solid #dbe8f5;border-radius:6px;background:#fff}
+.afd-shot figcaption{font-size:10.5px;color:#a19f9d;margin-top:4px}
+.afd-cnt{float:right;font-size:11px;font-weight:400;color:#8a8886}
+.afd-fprow{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:6px;align-items:center;margin-bottom:6px}
+.afd-no{font-size:11px;font-weight:700;color:#8a8886;text-align:center}
+.afd-fp{font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:12.5px;letter-spacing:.3px}
+.afd-fprow.ok .afd-fp{border-color:#107c10;background:#f6fbf6}.afd-fprow.bad .afd-fp{border-color:#d83b01;background:#fffaf8}
+.afd-fprow.ok .afd-no{color:#107c10}
+.afd-ibtn{height:32px;border:1px solid #c8c6c4;background:#fff;color:#323130;border-radius:4px;padding:0 11px;font-size:12px;cursor:pointer;font-family:inherit}
+.afd-ibtn:hover{border-color:#0078d4;color:#0078d4}.afd-ibtn.del{width:32px;padding:0;font-size:16px;line-height:1}
+.afd-ibtn.del:hover{border-color:#d83b01;color:#d83b01}.afd-ibtn:disabled{opacity:.35;cursor:default;border-color:#c8c6c4;color:#323130}
+.afd-fpmsg{grid-column:2 / -1;font-size:11px;color:#a4262c;line-height:1.4}.afd-fpmsg:empty{display:none}
+.afd-add{display:inline-flex;align-items:center;gap:4px;margin:2px 0 0 28px;padding:5px 12px;border:1px dashed #9cc7ee;background:#fff;color:#0b5fa5;border-radius:14px;font-size:12px;cursor:pointer;font-family:inherit}
+.afd-add:hover{background:#e8f2fc}
+.afd-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.afd-period .sa-input{width:auto;min-width:140px;flex:0 1 160px}
+.afd-days{font-size:12px;font-weight:700;color:#0b5fa5;background:#e8f2fc;border-radius:10px;padding:2px 9px}.afd-days:empty{display:none}
+.afd-chips{display:inline-flex;gap:5px;flex-wrap:wrap;margin-left:4px}
+.afd-chip{border:1px solid #c8c6c4;background:#fff;color:#323130;border-radius:14px;padding:3px 11px;font-size:11.5px;cursor:pointer;font-family:inherit}
 .afd-chip:hover{border-color:#0078d4;color:#0078d4}.afd-chip.on{background:#0078d4;border-color:#0078d4;color:#fff;font-weight:600}
-#it-alert-sub,#it-alert-title{word-break:keep-all;overflow-wrap:anywhere}   /* 10-29 안내 창 한글이 낱말 중간에서 끊기지 않게 */
-.afd-chiphint{font-size:10.5px;color:#a19f9d}.afd-chiphint b{color:#605e5c;font-weight:600}
-.afd-count{text-align:right;font-size:10.5px;color:#a19f9d;margin-top:3px}
-.afd-copy{display:block;width:100%;margin:-2px 0 10px;padding:7px 10px;border:1px dashed #9cc7ee;background:#f7fbff;color:#0b5fa5;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;text-align:left}
+.afd-copy{float:right;margin:-3px 0 0;padding:2px 11px;font-weight:400;border:1px dashed #9cc7ee;background:#fff;color:#0b5fa5;border-radius:14px;font-size:12px;cursor:pointer;font-family:inherit}
 .afd-copy:hover{background:#e8f2fc}
+#it-alert-sub,#it-alert-title{word-break:keep-all;overflow-wrap:anywhere}   /* 10-29 안내 창 한글이 낱말 중간에서 끊기지 않게 */
 .afd-fpval{font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:12px;overflow-wrap:anywhere}
 @media (max-width:720px){.afd-guide{grid-template-columns:1fr}.afd-shot{max-width:300px;margin:0 auto}}
 .appr-block.appr-extra.appr-auto{background:#faf7ff;border-color:#d9c7f0;border-left:3px solid #8a5cc7}
