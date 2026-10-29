@@ -1805,6 +1805,8 @@ function itSubPanel(p, sys, show) {
 }
 /* 구분별 빨간 안내(10-16) — 고른 구분에 결재가 더 필요할 때만, 그 시스템 구분 칸 안에(SAP-Be1 은 sapAcctRender 가 따로 그린다) */
 const SUB_NOTICES = {
+  'STK Autofocus DMS': { 'Device registration': '<b>Device registration</b> requires additional approval from the DMS executive in charge. · 기기 등록은 DMS 담당 임원의 추가 승인이 필요합니다.' },
+  'STK Autofocus CRM': { 'Device registration': '<b>Device registration</b> requires additional approval from the CRM executives in charge. · 기기 등록은 CRM 담당 임원의 추가 승인이 필요합니다.' },
   'Hyosung GUMS': {
     'Account re-activation': '<b>Account re-activation</b> requests require additional approval from the Department Head and the HR team.',
     'Account deactivation':  '<b>Account deactivation</b> requests require additional approval from the HR team.',
@@ -2137,8 +2139,8 @@ function sapAcctBlock(p) {   // 저장 블록 — 「[SAP-Be1 · Account creatio
    · 상신할 때 사용자 본문의 줄 머리 「[머리 · 」 는 전각 「［」 로 바꾼다(blkNeutral). */
 const BLOCK_DEFS = [
   { head: 'SAP-Be1', sys: SAP_SYS, title: 'SAP-Be1 요청 상세', opts: () => Object.keys(SAP_OPT_KO), keys: () => SAP_BLOCK_KEYS, ko: (o) => SAP_OPT_KO[o] || '', keyKo: (o, k) => sapKeyKo(o, k) },
-  { head: 'STK Autofocus DMS', sys: 'STK Autofocus DMS', title: 'STK Autofocus DMS 요청 상세', opts: () => ['Access control'], keys: () => AFS_BLOCK_KEYS, ko: () => '접근 통제', keyKo: (o, k) => AFS_BLOCK_KEYS[k] || '' },
-  { head: 'STK Autofocus CRM', sys: 'STK Autofocus CRM', title: 'STK Autofocus CRM 요청 상세', opts: () => ['Access control'], keys: () => AFS_BLOCK_KEYS, ko: () => '접근 통제', keyKo: (o, k) => AFS_BLOCK_KEYS[k] || '' },
+  { head: 'STK Autofocus DMS', sys: 'STK Autofocus DMS', title: 'STK Autofocus DMS 요청 상세', opts: () => ['Access control', 'Device registration'], keys: () => AFS_BLOCK_KEYS, ko: (o) => o === 'Device registration' ? '기기 등록' : '접근 통제', keyKo: (o, k) => AFS_BLOCK_KEYS[k] || '' },
+  { head: 'STK Autofocus CRM', sys: 'STK Autofocus CRM', title: 'STK Autofocus CRM 요청 상세', opts: () => ['Access control', 'Device registration'], keys: () => AFS_BLOCK_KEYS, ko: (o) => o === 'Device registration' ? '기기 등록' : '접근 통제', keyKo: (o, k) => AFS_BLOCK_KEYS[k] || '' },
 ];
 const _reEsc = x => x.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 function blocksParse(text, systems) {   // → [{ def, head, opt, rows, start, end }] (앞에서 뒤 순서) · systems 를 주면 맞는 블록까지만
@@ -2176,6 +2178,7 @@ function blkTable(b) {   // 상세 화면 표 하나
       (r[0] === 'CCTR' ? r[1].split(/\s*;\s*/).map(escHtml).join('<br>')
         : (r[0] === 'Current approval line' || r[0] === 'Requested approval line') && / → /.test(r[1]) ? r[1].split(' → ').map((x, i) => (i + 1) + '. ' + escHtml(x)).join('<br>')
         : r[0] === 'Dealer contact' ? r[1].split(' / ').map(escHtml).join('<br>')
+        : r[0] === 'Device fingerprint' ? '<span class="afd-fpval">' + escHtml(r[1]) + '</span>'
         : escHtml(r[1])) + '</td></tr>').join('') + '</table>';
 }
 
@@ -2184,7 +2187,8 @@ function blkTable(b) {   // 상세 화면 표 하나
    값은 afsAcc[탭][시스템] 에 두고, 상신 때 「[STK Autofocus CRM · Access control]」 블록으로 상세 내용 끝에 붙인다. */
 const AFS_SYSTEMS = ['STK Autofocus DMS', 'STK Autofocus CRM'];
 const AFS_OPT = 'Access control';
-const AFS_BLOCK_KEYS = { 'Access period': '접근 허용 기간', 'Reason': '사유', 'Dealer': '담당 딜러사', 'Dealer contact email': '딜러사 연락 메일',
+const AFS_DEV = 'Device registration';   // 10-29 기기 등록 — 기기 지문(Device Fingerprint) · 사용 기간 · 사유
+const AFS_BLOCK_KEYS = { 'Device fingerprint': '기기 지문(Device Fingerprint)', 'Usage period': '사용 기간', 'Access period': '접근 허용 기간', 'Reason': '사유', 'Dealer': '담당 딜러사', 'Dealer contact email': '딜러사 연락 메일',
   'Sales Agent': '담당 Sales Agent', 'Sales Agent contact email': 'Sales Agent 연락 메일',
   'Dealer contact': '딜러사 담당자 연락처' };   // 두 시스템 키를 모두 읽는다 — 예전 CRM 티켓의 Dealer 키도 그대로 보인다
 // 시스템마다 상대방(10-16) — DMS 는 딜러사, CRM 은 Sales Agent. 칸 · 검사 · 저장 키가 이것을 따른다
@@ -2196,13 +2200,15 @@ const AFS_PARTY = {
 };   // 'Dealer contact'(이름 / 메일 / 전화)는 예전 티켓 읽기 전용 — 개인정보 최소화로 새로 받지 않는다(10-16)
 const afsAcc = { inc: {}, chg: {} };
 function afsSet(p, sys, opt) {
-  afsAcc[p][sys] = opt === AFS_OPT ? { from: '', to: '', reason: '', party: '', cemail: '' } : null;
+  afsAcc[p][sys] = opt === AFS_OPT ? { from: '', to: '', reason: '', party: '', cemail: '' }
+    : opt === AFS_DEV ? { mode: 'dev', fp: '', from: afdToday(), to: '', reason: '' } : null;
   afsRender(p, sys);
 }
 function afsRender(p, sys) {
   const box = document.getElementById(p + '-afs-' + sysSlug(sys)); if (!box) return;
   const a = afsAcc[p][sys];
   if (!a) { box.hidden = true; box.innerHTML = ''; return; }
+  if (a.mode === 'dev') { afdRender(p, sys, box, a); return; }   // 기기 등록(10-29)
   const id = p + '-afs-' + sysSlug(sys), st = 'afsAcc.' + p + '[\'' + sys + '\']', Y = AFS_PARTY[sys];
   const inp = (k, type, ph, extra) => '<input type="' + type + '" class="sa-input" id="' + id + '-' + k + '" value="' + escHtml(a[k]) + '" placeholder="' + ph + '"' + (extra || '') + ' oninput="' + st + '.' + k + '=this.value">';
   box.innerHTML = '<div class="sa-head">' + escHtml(sys) + ' · Access control <span class="ko">접근 통제</span></div>' +
@@ -2218,7 +2224,9 @@ function afsRender(p, sys) {
 function afsFrom(p, sys, v) { const a = afsAcc[p][sys]; if (!a) return; a.from = v; const to = document.getElementById(p + '-afs-' + sysSlug(sys) + '-to'); if (to) { if (v) to.min = v; else to.removeAttribute('min'); } }
 function afsCheck(p) {   // '' = 통과
   for (const sys of AFS_SYSTEMS) {
-    const a = afsAcc[p][sys]; if (!a || itSubOf(p, sys) !== AFS_OPT) continue;
+    const a = afsAcc[p][sys];
+    if (a && a.mode === 'dev' && itSubOf(p, sys) === AFS_DEV) { const e = afdCheck(sys, a); if (e) return e; continue; }   // 기기 등록(10-29)
+    if (!a || a.mode === 'dev' || itSubOf(p, sys) !== AFS_OPT) continue;
     const P = sys + ' · ';
     if (!a.from || !a.to) return P + 'Access period(접근 허용 기간) 시작일과 종료일을 입력해주세요.';
     if (a.to < a.from) return P + 'Access period(접근 허용 기간) 종료일은 시작일과 같거나 뒤여야 합니다.';
@@ -2232,12 +2240,142 @@ function afsCheck(p) {   // '' = 통과
 }
 function afsBlocks(p) {   // 시스템 순서(DMS → CRM)대로 블록 글자
   const one = x => String(x || '').replace(/\s*\n+\s*/g, ' / ').trim();
-  return AFS_SYSTEMS.filter(sys => afsAcc[p][sys] && itSubOf(p, sys) === AFS_OPT).map(sys => {
+  return AFS_SYSTEMS.filter(sys => afsAcc[p][sys] && (afsAcc[p][sys].mode === 'dev' ? itSubOf(p, sys) === AFS_DEV : itSubOf(p, sys) === AFS_OPT)).map(sys => {
     const a = afsAcc[p][sys];
+    if (a.mode === 'dev') return '[' + sys + ' · ' + AFS_DEV + ']\nDevice fingerprint: ' + afdNorm(a.fp) + '\nUsage period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason);
     const Y = AFS_PARTY[sys];
     return '[' + sys + ' · ' + AFS_OPT + ']\nAccess period: ' + a.from + ' ~ ' + a.to + '\nReason: ' + one(a.reason) + '\n' + Y.key + ': ' + one(a.party) +
       '\n' + Y.mailKey + ': ' + one(a.cemail);
   });
+}
+/* ══ STK Autofocus DMS · CRM — Device registration 기기 등록(10-29) ══
+   「Device registration」 을 고르면 그 시스템 구분 칸 아래에
+   ① 기기 지문 받는 방법(등록할 기기에서 접속 → 「접속이 제한되었습니다」 화면의 Fingerprint 복사 → 붙여 넣기, 예시 그림은 지문 · IP 를 가림)
+   ② Device Fingerprint(16진수) · 사용 기간(시작 ~ 종료, 빠른 선택) · 사유 를 받는다.
+   상신 때 「[STK Autofocus CRM · Device registration]」 블록으로 상세 내용 끝에 붙는다.
+   추가 결재자(DMS · CRM 담당 임원)는 코드에 두지 않고 설정 파일의 IT_DMS_Device_Approver_N · IT_CRM_Device_Approver_N 으로 정한다(IT_AUTO_GROUPS). */
+const AFD_HOST = { 'STK Autofocus DMS': 'dms.startruckkorea.com', 'STK Autofocus CRM': 'crm.startruckkorea.com' };
+const AFD_CFG = { 'STK Autofocus DMS': 'IT_DMS_Device_Approver_', 'STK Autofocus CRM': 'IT_CRM_Device_Approver_' };
+const AFD_REASON_MAX = 500, AFD_REASON_MIN = 10;
+const AFD_IMG = 'data:image/png;base64,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';
+function afdToday() { return new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10); }
+function afdNorm(v) { return String(v || '').replace(/[\s​-‍﻿]+/g, '').toLowerCase(); }
+function afdFpState(v) {   // { ok, msg }
+  const n = afdNorm(v);
+  if (!n) return { ok: false, msg: '' };
+  if (!/^[0-9a-f]+$/.test(n)) return { ok: false, msg: '0-9 · a-f 만 들어갈 수 있어요 — 화면의 「Fingerprint 복사」 로 다시 복사해 붙여 넣어 주세요.' };
+  if (n.length < 32 || n.length > 128) return { ok: false, msg: '길이가 맞지 않아요(지금 ' + n.length + '자리 · 보통 64자리) — 끝까지 복사됐는지 확인해 주세요.' };
+  return { ok: true, msg: n.length + '자리 확인됨' };
+}
+function afdDays(a) {
+  if (!a.from || !a.to || a.to < a.from) return 0;
+  return Math.round((Date.parse(a.to + 'T00:00:00Z') - Date.parse(a.from + 'T00:00:00Z')) / 864e5) + 1;
+}
+function afdAddMonths(ymd, m) {   // 시작일 + m개월 − 1일(같은 날짜가 없으면 그 달 말일)
+  const [y, mo, d] = ymd.split('-').map(Number);
+  const last = new Date(Date.UTC(y, mo - 1 + m + 1, 0)).getUTCDate();
+  const t = new Date(Date.UTC(y, mo - 1 + m, Math.min(d, last)) - 864e5);
+  return t.toISOString().slice(0, 10);
+}
+function afdRender(p, sys, box, a) {
+  const id = p + '-afs-' + sysSlug(sys), st = 'afsAcc.' + p + '[\'' + sys + '\']', short = sys.replace('STK Autofocus ', '');
+  const q = s2 => s2.replace(/'/g, "\\'");
+  const other = AFS_SYSTEMS.find(x => x !== sys && afsAcc[p][x] && afsAcc[p][x].mode === 'dev' && itSubOf(p, x) === AFS_DEV && afdNorm(afsAcc[p][x].fp));
+  const fs = afdFpState(a.fp), days = afdDays(a);
+  const quick = [[1, '1개월'], [3, '3개월'], [6, '6개월'], [12, '1년']].map(([m, t]) => {
+    const on = a.from && a.to === afdAddMonths(a.from, m);
+    return '<button type="button" class="afd-chip' + (on ? ' on' : '') + '" onclick="afdQuick(\'' + p + '\',\'' + q(sys) + '\',' + m + ')">' + t + '</button>';
+  }).join('');
+  box.innerHTML =
+    '<div class="sa-head">' + escHtml(sys) + ' · Device registration <span class="ko">기기 등록</span></div>' +
+    '<div class="afd-guide">' +
+      '<div class="afd-steps">' +
+        '<div class="afd-gtitle">Device Fingerprint 받는 방법 <span>How to get it</span></div>' +
+        '<div class="afd-step"><span class="n">1</span><div>등록할 기기(PC · 태블릿)에서 <b>' + escHtml(AFD_HOST[sys]) + '</b> 에 접속합니다.<div class="en">Open ' + escHtml(short) + ' on the device to register.</div></div></div>' +
+        '<div class="afd-step"><span class="n">2</span><div>「접속이 제한되었습니다」 화면에서 <b>Fingerprint 복사</b>를 누릅니다.<div class="en">On the “Access restricted” screen, click <i>Fingerprint 복사</i>.</div></div></div>' +
+        '<div class="afd-step"><span class="n">3</span><div>아래 <b>Device Fingerprint</b> 칸에 붙여 넣습니다(Ctrl + V).<div class="en">Paste it into the field below.</div></div></div>' +
+        '<div class="afd-tip">기기마다 값이 다릅니다 — 반드시 <b>등록할 그 기기</b>에서 복사해 주세요.</div>' +
+      '</div>' +
+      '<figure class="afd-shot"><img src="' + AFD_IMG + '" alt="접속 제한 화면 예시 — ① Device Fingerprint ② Fingerprint 복사" width="300" height="256" loading="lazy">' +
+        '<figcaption>예시 화면 · 지문과 IP 일부는 가렸습니다</figcaption></figure>' +
+    '</div>' +
+    '<div class="sa-row" data-k="fp">' + _sapLbl('Device Fingerprint', '기기 지문', true) +
+      '<div class="afd-fpwrap' + (fs.ok ? ' ok' : fs.msg ? ' bad' : '') + '" id="' + id + '-fpwrap">' +
+        '<input type="text" class="sa-input afd-fp" id="' + id + '-fp" value="' + escHtml(a.fp) + '" placeholder="예) 44c01e3034783960 … (64자리)" autocomplete="off" spellcheck="false" ' +
+          'oninput="afdFp(\'' + p + '\',\'' + q(sys) + '\',this.value)" onblur="this.value=afdNorm(this.value);afdFp(\'' + p + '\',\'' + q(sys) + '\',this.value)">' +
+        '<button type="button" class="afd-paste" onclick="afdPaste(\'' + p + '\',\'' + q(sys) + '\')">붙여넣기</button>' +
+      '</div>' +
+      '<div class="afd-fpmsg' + (fs.ok ? ' ok' : '') + '" id="' + id + '-fpmsg">' + (fs.ok ? '✓ ' : '') + escHtml(fs.msg) + '</div>' +
+    '</div>' +
+    '<div class="sa-row" data-k="period">' + _sapLbl('Usage period', '사용 기간', true) +
+      '<div class="afd-period">' +
+        '<input type="date" class="sa-input" id="' + id + '-from" value="' + escHtml(a.from) + '" onchange="afdFrom(\'' + p + '\',\'' + q(sys) + '\',this.value)">' +
+        '<span class="afs-tilde">~</span>' +
+        '<input type="date" class="sa-input" id="' + id + '-to" value="' + escHtml(a.to) + '"' + (a.from ? ' min="' + escHtml(a.from) + '"' : '') + ' onchange="afdTo(\'' + p + '\',\'' + q(sys) + '\',this.value)">' +
+        '<span class="afd-days" id="' + id + '-days">' + (days ? '총 ' + days + '일' : '') + '</span>' +
+      '</div>' +
+      '<div class="afd-chips">' + quick + '<span class="afd-chiphint">시작일부터</span></div>' +
+    '</div>' +
+    '<div class="sa-row" data-k="reason">' + _sapLbl('Reason', '사유', true) +
+      '<textarea class="sa-input" id="' + id + '-reason" rows="3" maxlength="' + AFD_REASON_MAX + '" placeholder="어떤 업무에 이 기기가 필요한지 적어 주세요.&#10;예) 신규 입사자 업무용 노트북 — 고객 상담 · 견적 작성에 ' + escHtml(short) + ' 사용" ' +
+        'oninput="' + st + '.reason=this.value;afdCount(\'' + p + '\',\'' + q(sys) + '\')">' + escHtml(a.reason) + '</textarea>' +
+      '<div class="afd-count" id="' + id + '-cnt">' + a.reason.trim().length + ' / ' + AFD_REASON_MAX + '</div>' +
+    '</div>' +
+    (other ? '<button type="button" class="afd-copy" onclick="afdCopyFrom(\'' + p + '\',\'' + q(sys) + '\',\'' + q(other) + '\')">↺ ' + escHtml(other.replace('STK Autofocus ', '')) + ' 에 입력한 지문 · 기간 · 사유 그대로 쓰기</button>' : '');
+  box.hidden = false;
+}
+function afdFp(p, sys, v) {
+  const a = afsAcc[p][sys]; if (!a) return; a.fp = v;
+  const id = p + '-afs-' + sysSlug(sys), fs = afdFpState(v);
+  const w = document.getElementById(id + '-fpwrap'), m = document.getElementById(id + '-fpmsg');
+  if (w) w.className = 'afd-fpwrap' + (fs.ok ? ' ok' : fs.msg ? ' bad' : '');
+  if (m) { m.className = 'afd-fpmsg' + (fs.ok ? ' ok' : ''); m.textContent = (fs.ok ? '✓ ' : '') + fs.msg; }
+}
+async function afdPaste(p, sys) {
+  const el = document.getElementById(p + '-afs-' + sysSlug(sys) + '-fp');
+  try {
+    const t = await navigator.clipboard.readText();
+    if (el) { el.value = afdNorm(t); afdFp(p, sys, el.value); }
+  } catch (e) {   // 브라우저가 클립보드 읽기를 막으면 칸에 커서만 두고 Ctrl + V 안내
+    if (el) { el.focus(); el.select(); }
+    const m = document.getElementById(p + '-afs-' + sysSlug(sys) + '-fpmsg');
+    if (m) { m.className = 'afd-fpmsg'; m.textContent = '이 브라우저는 붙여넣기 단추를 막았어요 — 칸을 누르고 Ctrl + V 로 붙여 넣어 주세요.'; }
+  }
+}
+function afdRefreshDays(p, sys) {
+  const a = afsAcc[p][sys], d = document.getElementById(p + '-afs-' + sysSlug(sys) + '-days');
+  if (d) { const n = afdDays(a); d.textContent = n ? '총 ' + n + '일' : ''; }
+}
+function afdFrom(p, sys, v) {
+  const a = afsAcc[p][sys]; if (!a) return; a.from = v;
+  if (a.to && v && a.to < v) a.to = '';
+  afsRender(p, sys);
+}
+function afdTo(p, sys, v) { const a = afsAcc[p][sys]; if (!a) return; a.to = v; afsRender(p, sys); }
+function afdQuick(p, sys, m) {
+  const a = afsAcc[p][sys]; if (!a) return;
+  if (!a.from) a.from = afdToday();
+  a.to = afdAddMonths(a.from, m);
+  afsRender(p, sys);
+}
+function afdCount(p, sys) {
+  const a = afsAcc[p][sys], c = document.getElementById(p + '-afs-' + sysSlug(sys) + '-cnt');
+  if (c && a) c.textContent = a.reason.trim().length + ' / ' + AFD_REASON_MAX;
+}
+function afdCopyFrom(p, sys, from) {
+  const a = afsAcc[p][sys], b = afsAcc[p][from]; if (!a || !b) return;
+  a.fp = b.fp; a.from = b.from; a.to = b.to; a.reason = b.reason;
+  afsRender(p, sys);
+}
+function afdCheck(sys, a) {   // '' = 통과
+  const P = sys + ' · Device registration — ';
+  const fs = afdFpState(a.fp);
+  if (!afdNorm(a.fp)) return P + 'Device Fingerprint(기기 지문)를 붙여 넣어 주세요.';
+  if (!fs.ok) return P + 'Device Fingerprint(기기 지문): ' + fs.msg;
+  if (!a.from || !a.to) return P + '사용 기간 시작일과 종료일을 입력해 주세요.';
+  if (a.to < a.from) return P + '사용 기간 종료일은 시작일과 같거나 뒤여야 합니다.';
+  if (a.reason.trim().length < AFD_REASON_MIN) return P + '사유를 ' + AFD_REASON_MIN + '자 이상 구체적으로 적어 주세요.';
+  return '';
 }
 function syncNoticeBoxes() {
   if (_activeTab !== 'change') {
@@ -2455,6 +2593,7 @@ function renderFiles(prefix) {
    · 결재행 역할은 ACC Voucher 와 같은 「Extra Approver」(APS · 메일에서 별도 매핑 없이 읽힘), 차수는 1차 다음부터 차례로,
      IT 담당자는 맨 뒤로 밀린다. 결재 진행은 기존과 같다(다음 「대기(잠김)」 를 차수 순으로 푼다). */
 const IT_MAX_EXTRA = 3;
+function itMaxExtra(p) { return Math.max(IT_MAX_EXTRA, (itExtra[p] || []).filter(x => x.auto).length); }   // 10-29 자동 지정이 3명을 넘으면 그 수까지(직접 추가는 불가)
 const IT_EXTRA_ROLE = 'Extra Approver';
 const itExtra = { inc: [], chg: [] };
 const _itHelpOpen = { inc: false, chg: false };
@@ -2473,6 +2612,9 @@ const IT_AUTO_GROUPS = [   // 순서 = 결재 순서. 같은 사람은 한 번�
   { id: 'gums-react', what: 'Hyosung GUMS account re-activation', members: [_dhM].concat(SAP_HR_KEYS.map(k => _cfgM(k, 'HR'))), on: p => itSubOf(p, 'Hyosung GUMS') === 'Account re-activation' },
   { id: 'gums-deact', what: 'Hyosung GUMS account deactivation', members: SAP_HR_KEYS.map(k => _cfgM(k, 'HR')), on: p => itSubOf(p, 'Hyosung GUMS') === 'Account deactivation' },
   { id: 'hr', what: 'Account re-activation', members: SAP_HR_KEYS.map(k => _cfgM(k, 'HR')), on: p => itSapSub(p) === 'Account change' && sapHasReact(sapAcct[p]) },   // SAP-Be1 Re-activation 만(Deactivation 은 HR 승인 없음)
+  // 10-29 Autofocus 기기 등록 — 담당 임원(설정 파일 IT_DMS_Device_Approver_1 · _2 … / IT_CRM_Device_Approver_1 · _2 …, 번호순)
+  { id: 'dms', what: 'STK Autofocus DMS device registration', cfgPrefix: AFD_CFG['STK Autofocus DMS'], members: () => _cfgNumKeys(_sysConfig, AFD_CFG['STK Autofocus DMS']).map(k => _cfgM(k, 'DMS')), on: p => itSubOf(p, 'STK Autofocus DMS') === AFS_DEV },
+  { id: 'crm', what: 'STK Autofocus CRM device registration', cfgPrefix: AFD_CFG['STK Autofocus CRM'], members: () => _cfgNumKeys(_sysConfig, AFD_CFG['STK Autofocus CRM']).map(k => _cfgM(k, 'CRM')), on: p => itSubOf(p, 'STK Autofocus CRM') === AFS_DEV },
 ];
 function itSyncAuto(p) {
   const manual = (itExtra[p] || []).filter(x => !x.auto);
@@ -2481,9 +2623,10 @@ function itSyncAuto(p) {
   const me = [user && user.email, user && user.username].map(low).filter(Boolean);
   const seen = new Set();
   IT_AUTO_GROUPS.filter(g => g.on(p)).forEach(g0 => {
-    const g = typeof g0.what === 'function' ? Object.assign({}, g0, { what: g0.what(p) }) : g0;   // 이름이 구분마다 다른 묶음(CCTR)
+    const g = Object.assign({}, g0, { what: typeof g0.what === 'function' ? g0.what(p) : g0.what, members: typeof g0.members === 'function' ? g0.members(p) : g0.members });   // 이름이 구분마다 다른 묶음(CCTR) · 번호 키 묶음(10-29)
     const miss = [];
-    if (_sysConfig == null && g.members.some(m => m.kind === 'cfg')) { errs.push('설정 파일을 읽지 못해 ' + g.what + ' 결재자를 정할 수 없습니다 — 새로고침 후 다시 시도해 주세요.'); return; }   // 키가 비었다고 하지 않는다(10-16 검토)
+    if (g.cfgPrefix && _sysConfig != null && !g.members.length) { errs.push(g.what + ' 담당 임원 결재자가 아직 지정되지 않아 상신할 수 없습니다 — ' + itTeam('IT팀') + '에 알려주세요.'); return; }   // 10-29 키 이름은 화면에 내지 않는다
+    if (_sysConfig == null && (g.cfgPrefix || g.members.some(m => m.kind === 'cfg'))) { errs.push('설정 파일을 읽지 못해 ' + g.what + ' 결재자를 정할 수 없습니다 — 새로고침 후 다시 시도해 주세요.'); return; }   // 키가 비었다고 하지 않는다(10-16 검토)
     g.members.forEach((m, i) => {
       let email = '', name = '', role = '';
       if (m.kind === 'dh') {   // 신청자의 부서장 — Flex 명부(employee_search) HFS 조직도 규칙(flexDeptHead)
@@ -2494,7 +2637,7 @@ function itSyncAuto(p) {
       } else {
         const v = _sysConfig && _sysConfig[m.key];
         email = v ? String(v.email || '').trim() : ''; name = v ? String(v.name || '').trim() : '';
-        role = m.key.replace(/^IT_/, '').replace(/_/g, ' ');
+        role = m.key.replace(/^IT_/, '').replace(/_Approver_(\d+)$/, ' Approver $1').replace(/_/g, ' ');
         if (!email) { miss.push(role + ' (' + m.key + ')'); return; }
       }
       const who = (name || email);
@@ -2508,12 +2651,12 @@ function itSyncAuto(p) {
     });
     if (miss.length) errs.push(g.what + ' 결재자 설정이 비어 있어 상신할 수 없습니다 — ' + miss.join(', ') + '. '+itTeam('IT팀')+'에 알려주세요.');
   });
-  if (auto.length > IT_MAX_EXTRA)   // 여러 구분의 자동 결재자가 겹쳐 3명을 넘으면 — 티켓을 나누게 한다
-    errs.push('자동 지정 결재자가 ' + auto.length + '명으로 최대 ' + IT_MAX_EXTRA + '명을 넘습니다 — 요청을 나누어 티켓을 따로 신청해 주세요.');
+  // 10-29: 자동 지정 결재자는 한도와 상관없이 모두 넣는다(DMS + CRM 기기 등록이면 4명). 한도(itMaxExtra)는 직접 추가를 막는 데만 쓴다.
   info.err = errs.join(' ');
   itExtra[p] = auto.concat(manual);
-  if (auto.length <= IT_MAX_EXTRA && itExtra[p].length > IT_MAX_EXTRA)
-    info.err = (info.err ? info.err + ' ' : '') + '추가 결재자는 자동 지정 포함 최대 ' + IT_MAX_EXTRA + '명입니다 — 직접 추가한 결재자를 ' + (itExtra[p].length - IT_MAX_EXTRA) + '명 「✕ 삭제」로 지워 주세요.';
+  const _lim = Math.max(IT_MAX_EXTRA, auto.length);
+  if (itExtra[p].length > _lim)
+    info.err = (info.err ? info.err + ' ' : '') + '추가 결재자는 자동 지정 포함 최대 ' + _lim + '명입니다 — 직접 추가한 결재자를 ' + (itExtra[p].length - _lim) + '명 「✕ 삭제」로 지워 주세요.';
   itAutoInfo[p] = info;
 }
 function itRenderApprLine(p) {
@@ -2533,7 +2676,7 @@ function itRenderApprLine(p) {
         '<span class="line-step"><span class="line-step-badge ' + st.cls + '">' + (i + 1) + '차</span><span class="line-step-label">' + st.label + '</span>' +
         (i < steps.length - 1 ? '<span class="line-arrow">→</span>' : '') + '</span>').join('') + '</div>' +
       '<details class="appr-help"' + (_itHelpOpen[p] ? ' open' : '') + ' ontoggle="_itHelpOpen[\'' + p + '\']=this.open">' +
-        '<summary><span class="chev">▶</span>Adding an Additional Approver<span class="used">' + list.length + ' of ' + IT_MAX_EXTRA + ' used</span></summary>' +
+        '<summary><span class="chev">▶</span>Adding an Additional Approver<span class="used">' + list.length + ' of ' + itMaxExtra(p) + ' used</span></summary>' +
         '<div class="appr-help-body">' +
           '<div style="margin-bottom:5px">Some requests — especially those that grant access to a system — may need separate or additional approval from the system owner or a designated contact. ' +
           'In that case, click the dashed <span style="color:#0078d4;font-weight:700">＋ 결재자 추가</span> line below to add an approver before the IT step.</div>' +
@@ -2551,7 +2694,7 @@ function itRenderApprLine(p) {
   if (area) {
     const depts = [...new Set(employeeData.map(e => e.dept))].sort();
     const deptOpts = depts.map(d => '<option value="' + escHtml(d) + '">' + escHtml(d) + '</option>').join('');
-    const full = list.length >= IT_MAX_EXTRA;
+    const full = list.length >= itMaxExtra(p);
     area.innerHTML =
       (_ai.err ? '<div class="it-auto-note err" role="alert">⚠ ' + escHtml(_ai.err) + '</div>' : '') +
       (_ai.notes.length ? '<div class="it-auto-note">ℹ ' + _ai.notes.map(escHtml).join('<br>') + '</div>' : '') +
@@ -2575,7 +2718,7 @@ function itRenderApprLine(p) {
           '<input type="email" id="' + x.uid + '-email" value="' + escHtml(x.email) + '" readonly placeholder="이메일">' +
         '</div></div>').join('') +
       (full
-        ? '<div class="appr-insert is-full" title="추가 결재자는 최대 ' + IT_MAX_EXTRA + '명까지 지정할 수 있습니다"><span class="appr-insert-line"></span><span class="appr-insert-btn">Maximum ' + IT_MAX_EXTRA + ' reached</span><span class="appr-insert-line"></span></div>'
+        ? '<div class="appr-insert is-full" title="' + (itMaxExtra(p) > IT_MAX_EXTRA ? '자동 지정 결재자가 ' + itMaxExtra(p) + '명이라 직접 추가할 수 없습니다' : '추가 결재자는 최대 ' + IT_MAX_EXTRA + '명까지 지정할 수 있습니다') + '"><span class="appr-insert-line"></span><span class="appr-insert-btn">Maximum ' + itMaxExtra(p) + ' reached</span><span class="appr-insert-line"></span></div>'
         : '<div class="appr-insert" onclick="itExAdd(\'' + p + '\')" title="IT 담당자 앞에 결재자 추가"><span class="appr-insert-line"></span><span class="appr-insert-btn"><span class="appr-insert-plus">+</span> 결재자 추가</span><span class="appr-insert-line"></span></div>');
     // 다시 그린 뒤 보관해 둔 부서 → 팀 → 직원 선택을 되살린다
     list.forEach(x => {
@@ -2600,7 +2743,7 @@ function _itFillPeople(dept, team, sel) {
 }
 function _itEx(p, uid) { return (itExtra[p] || []).find(x => x.uid === uid); }
 function itExAdd(p) {
-  if ((itExtra[p] || []).length >= IT_MAX_EXTRA) return;
+  if ((itExtra[p] || []).length >= itMaxExtra(p)) return;
   itExtra[p].push({ uid: 'itex' + (++_itExSeq), dept: '', team: '', name: '', email: '' });
   itRenderApprLine(p);
 }
@@ -4735,6 +4878,35 @@ textarea.sa-input{resize:vertical;min-height:64px;line-height:1.5}
 .line-step-badge.hr{background:#15877b}
 .appr-block.appr-extra.appr-auto.appr-auto-hr{background:#f4fbf9;border-color:#bde3dc;border-left:3px solid #15877b}
 .line-step-badge.cctr{background:#8a5cc7}
+/* 10-29 Autofocus 기기 등록 */
+.appr-tag.dms{color:#9a3412;background:#fdeee3}.line-step-badge.dms{background:#c2581c}
+.appr-block.appr-extra.appr-auto.appr-auto-dms{background:#fffaf6;border-color:#f3d4bd;border-left:3px solid #c2581c}
+.appr-tag.crm{color:#1e40af;background:#e6edfc}.line-step-badge.crm{background:#2f5fd0}
+.appr-block.appr-extra.appr-auto.appr-auto-crm{background:#f7f9ff;border-color:#c9d6f5;border-left:3px solid #2f5fd0}
+.afd-guide{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start;margin:2px 0 12px;padding:12px;background:linear-gradient(180deg,#f7fbff,#f2f7fd);border:1px solid #d6e4f2;border-radius:8px}
+.afd-gtitle{font-size:12.5px;font-weight:700;color:#0b3d6b;margin-bottom:8px}.afd-gtitle span{font-weight:400;color:#8a8886;font-size:11px;margin-left:4px}
+.afd-step{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:#323130;line-height:1.55;margin-bottom:8px}
+.afd-step .n{flex:none;width:20px;height:20px;border-radius:50%;background:#d9480f;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
+.afd-step .en{font-size:10.5px;color:#8a8886}
+.afd-tip{font-size:11px;color:#9F1D1D;background:#fdf0f1;border:1px solid #f1c0c4;border-radius:4px;padding:5px 8px;line-height:1.5}
+.afd-shot{margin:0;text-align:center}.afd-shot img{display:block;width:100%;height:auto;border:1px solid #d6e4f2;border-radius:6px;background:#fff;box-shadow:0 2px 8px rgba(11,61,107,.08)}
+.afd-shot figcaption{font-size:10.5px;color:#8a8886;margin-top:5px}
+.afd-fpwrap{display:flex;gap:6px;align-items:stretch}.afd-fpwrap .afd-fp{font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:12.5px;letter-spacing:.3px}
+.afd-fpwrap.ok .afd-fp{border-color:#107c10;background:#f6fbf6}.afd-fpwrap.bad .afd-fp{border-color:#d83b01;background:#fffaf8}
+.afd-paste{flex:none;border:1px solid #0078d4;background:#fff;color:#0078d4;border-radius:4px;padding:0 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.afd-paste:hover{background:#0078d4;color:#fff}
+.afd-fpmsg{font-size:11px;color:#a4262c;margin-top:4px;min-height:15px;line-height:1.4}.afd-fpmsg.ok{color:#107c10;font-weight:600}
+.afd-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.afd-period .sa-input{width:auto;min-width:150px;flex:0 1 170px}
+.afd-days{font-size:12px;font-weight:700;color:#0b5fa5;background:#e8f2fc;border-radius:10px;padding:2px 10px}.afd-days:empty{display:none}
+.afd-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px}
+.afd-chip{border:1px solid #c8c6c4;background:#fff;color:#323130;border-radius:14px;padding:3px 12px;font-size:11.5px;cursor:pointer;font-family:inherit}
+.afd-chip:hover{border-color:#0078d4;color:#0078d4}.afd-chip.on{background:#0078d4;border-color:#0078d4;color:#fff;font-weight:600}
+.afd-chiphint{font-size:10.5px;color:#a19f9d}
+.afd-count{text-align:right;font-size:10.5px;color:#a19f9d;margin-top:3px}
+.afd-copy{display:block;width:100%;margin:-2px 0 10px;padding:7px 10px;border:1px dashed #9cc7ee;background:#f7fbff;color:#0b5fa5;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;text-align:left}
+.afd-copy:hover{background:#e8f2fc}
+.afd-fpval{font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:12px;overflow-wrap:anywhere}
+@media (max-width:720px){.afd-guide{grid-template-columns:1fr}.afd-shot{max-width:300px;margin:0 auto}}
 .appr-block.appr-extra.appr-auto{background:#faf7ff;border-color:#d9c7f0;border-left:3px solid #8a5cc7}
 .it-auto-note{font-size:11px;color:#605e5c;background:#f7f5fb;border:1px solid #e1d7ef;border-radius:6px;padding:6px 10px;margin:0 0 8px;line-height:1.5;overflow-wrap:anywhere}
 .it-auto-note.err{color:#a4262c;background:#fdf0f1;border-color:#f1c0c4;font-weight:600}
