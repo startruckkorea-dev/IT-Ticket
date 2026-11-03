@@ -2951,8 +2951,9 @@ function resetForm(prefix) {
      Logging_data 에 「결재자 Flex 연동 실패」 로 남겨 IT 가 명부를 고치게 한다.
    입력칸(…-name · …-email)과 상신 로직은 그대로 — 값을 자동으로 채우고 칸을 읽기 전용(회색)으로 둘 뿐이다. */
 /* 11-03 결재 역할 표기 — 1차 「Line Manager」 는 화면에서 「Team Leader」 로 보여 준다(ACC Voucher · FA · STK Contract 와 같은 표기).
-   저장값은 그대로 — 옛 건 · APS 결재함 · 내보내기 판정이 같은 값을 읽는다. */
-function tlRoleText(r){ return String(r == null ? '' : r).replace(/\bLine Manager\b/g, 'Team Leader'); }
+   저장값은 그대로 — 옛 건 · APS 결재함 · 내보내기 판정이 같은 값을 읽는다.
+   IT Ticket 1차는 괄호 없이 「1차결재자」 로 저장돼 역할이 비어 보였다 — 2차(Extra Approver) · 3차(IT담당자)처럼 「1차결재자(Team Leader)」 로 보여 준다. */
+function tlRoleText(r){ return String(r == null ? '' : r).replace(/\bLine Manager\b/g, 'Team Leader').replace(/^1차결재자(?=\s*(?:\u00B7|$))/, '1차결재자(Team Leader)'); }
 const FLEX_SLOTS = [{id: "inc-a1", role: "tl"}, {id: "chg-a1", role: "tl"}];   // id = 이름/이메일 칸 접두어(id-name · id-email), role: tl(팀장 = G열) · dh(부서장 = H열)
 const FLEX_SYS = "IT Ticket";
 function flexNorm(s){ return String(s||'').trim().toLowerCase().replace(/\s+/g,' '); }
